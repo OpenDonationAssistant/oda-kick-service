@@ -30,7 +30,6 @@ public class SubscribeAllKickEventsHandler
     rabbit.sendCommand(
       new SubscribeEventsHandler.SubscribeKickEventsCommand(
         message.recipientId(),
-        message.token(),
         message.refreshTokenId(),
         List.of(
           "channel.followed",
@@ -49,7 +48,6 @@ public class SubscribeAllKickEventsHandler
   @Serdeable
   public static record SubscribeAllKickEventsCommand(
     String recipientId,
-    String token,
     String refreshTokenId
   ) {}
 }

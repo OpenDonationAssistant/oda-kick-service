@@ -13,8 +13,7 @@ public record SubscriptionsData(
   @Id String id,
   String recipientId,
   String tokenId,
-  @MappedProperty(type = DataType.JSON)
-  List<Subscription> events
+  @MappedProperty(type = DataType.JSON) List<Subscription> events
 ) {
   @Serdeable
   public static record Subscription(String id, String name, Integer version) {}

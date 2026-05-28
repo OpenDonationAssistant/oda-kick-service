@@ -1,7 +1,7 @@
 package io.github.opendonationassistant.kick.listener.handlers;
 
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData.Subscription;
 import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
@@ -20,13 +20,13 @@ public class UnsubscribeEventsHandler
     UnsubscribeEventsHandler.UnsubscribeKickEventsCommand
   > {
 
-  private final KickDataClient kick;
+  private final KickClient kick;
   private final SubscriptionsDataRepository dataRepository;
 
   @Inject
   public UnsubscribeEventsHandler(
     ObjectMapper mapper,
-    KickDataClient kick,
+    KickClient kick,
     SubscriptionsDataRepository dataRepository
   ) {
     super(mapper);
@@ -37,7 +37,6 @@ public class UnsubscribeEventsHandler
   @Serdeable
   public static record UnsubscribeKickEventsCommand(
     String recipientId,
-    String token,
     String refreshTokenId,
     @Nullable List<String> events
   ) {}
@@ -74,7 +73,8 @@ public class UnsubscribeEventsHandler
       .ifPresent(leftAndDeleted -> {
         kick
           .unsubscribe(
-            message.token(),
+            message.recipientId(),
+            message.refreshTokenId(),
             leftAndDeleted.deleted().stream().map(Subscription::id).toList()
           )
           .thenAccept(response -> {

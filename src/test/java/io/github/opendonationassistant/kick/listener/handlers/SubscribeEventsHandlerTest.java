@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.integration.KickDataClient;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
@@ -22,7 +23,7 @@ import org.mockito.Mockito;
 
 public class SubscribeEventsHandlerTest {
 
-  KickDataClient kick = Mockito.mock(KickDataClient.class);
+  KickClient kick = Mockito.mock(KickClient.class);
   ObjectMapper mapper = ObjectMapper.getDefault();
   SubscriptionsDataRepository repository = Mockito.mock(
     SubscriptionsDataRepository.class
@@ -37,7 +38,7 @@ public class SubscribeEventsHandlerTest {
   @Test
   public void testCreatingNewSubscriptions() throws IOException {
     when(
-      kick.subscribe(anyString(), any(SubscriptionRequest.class))
+      kick.subscribe(anyString(), anyString(), any(SubscriptionRequest.class))
     ).thenReturn(
       CompletableFuture.completedFuture(
         new DataWrapper<>(
@@ -51,13 +52,13 @@ public class SubscribeEventsHandlerTest {
     handler.handle(
       new SubscribeKickEventsCommand(
         "testuser",
-        "token",
         "tokenId",
         List.of("name", "name2")
       )
     );
     Mockito.verify(kick).subscribe(
-      "token",
+      "testuser",
+      "tokenId",
       new SubscriptionRequest(
         List.of(
           new EventSubscription("name", 1),
@@ -85,7 +86,7 @@ public class SubscribeEventsHandlerTest {
   @Test
   public void testAddingSubscriptionsToExisting() throws IOException {
     when(
-      kick.subscribe(anyString(), any(SubscriptionRequest.class))
+      kick.subscribe(anyString(), anyString(), any(SubscriptionRequest.class))
     ).thenReturn(
       CompletableFuture.completedFuture(
         new DataWrapper<>(
@@ -114,7 +115,6 @@ public class SubscribeEventsHandlerTest {
     handler.handle(
       new SubscribeKickEventsCommand(
         "testuser",
-        "token",
         "tokenId",
         List.of("name", "name2")
       )

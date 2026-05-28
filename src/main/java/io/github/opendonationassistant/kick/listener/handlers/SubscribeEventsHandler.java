@@ -2,7 +2,7 @@ package io.github.opendonationassistant.kick.listener.handlers;
 
 import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
@@ -24,12 +24,12 @@ public class SubscribeEventsHandler
     SubscribeEventsHandler.SubscribeKickEventsCommand
   > {
 
-  private final KickDataClient kick;
+  private final KickClient kick;
   private final SubscriptionsDataRepository dataRepository;
 
   public SubscribeEventsHandler(
     ObjectMapper mapper,
-    KickDataClient kick,
+    KickClient kick,
     SubscriptionsDataRepository dataRepository
   ) {
     super(mapper);
@@ -41,7 +41,8 @@ public class SubscribeEventsHandler
   public void handle(SubscribeKickEventsCommand message) throws IOException {
     kick
       .subscribe(
-        message.token(),
+        message.recipientId(),
+        message.refreshTokenId(),
         new SubscriptionRequest(
           message
             .events()
@@ -67,7 +68,10 @@ public class SubscribeEventsHandler
       )
       .toList();
     final Optional<SubscriptionsData> existed = dataRepository
-      .findByRecipientIdAndTokenId(message.recipientId(), message.token())
+      .findByRecipientIdAndTokenId(
+        message.recipientId(),
+        message.refreshTokenId()
+      )
       .stream()
       .findFirst();
     existed.ifPresentOrElse(
@@ -103,7 +107,6 @@ public class SubscribeEventsHandler
   @Serdeable
   public static record SubscribeKickEventsCommand(
     String recipientId,
-    String token,
     String refreshTokenId,
     List<String> events
   ) {}

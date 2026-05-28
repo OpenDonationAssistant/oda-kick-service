@@ -16,6 +16,13 @@ micronaut:
           secret:
             generator:
               secret: ${JWT_GENERATOR_SIGNATURE_SECRET:pleaseChangeThisSecretForANewOne}
+  executors:
+    command-listener:
+      type: fixed
+      nThreads: 1
+    event-listener:
+      type: fixed
+      nThreads: 1
 datasources:
   default:
     driver-class-name: org.postgresql.Driver

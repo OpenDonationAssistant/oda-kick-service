@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.integration.KickDataClient;
 import io.github.opendonationassistant.kick.listener.handlers.UnsubscribeEventsHandler.UnsubscribeKickEventsCommand;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData;
@@ -18,7 +19,7 @@ import org.junit.jupiter.api.Test;
 public class UnsubscribeEventsHandlerTest {
 
   ObjectMapper mapper = ObjectMapper.getDefault();
-  KickDataClient kick = mock(KickDataClient.class);
+  KickClient kick = mock(KickClient.class);
   SubscriptionsDataRepository repository = mock(
     SubscriptionsDataRepository.class
   );
@@ -30,7 +31,7 @@ public class UnsubscribeEventsHandlerTest {
 
   @Test
   public void testDeletingAllEvents() throws IOException {
-    when(kick.unsubscribe(anyString(), anyList())).thenReturn(
+    when(kick.unsubscribe(anyString(), anyString(), anyList())).thenReturn(
       CompletableFuture.completedFuture(null)
     );
     when(
@@ -49,15 +50,19 @@ public class UnsubscribeEventsHandlerTest {
       )
     );
     handler.handle(
-      new UnsubscribeKickEventsCommand("testuser", "token", "tokenId", null)
+      new UnsubscribeKickEventsCommand("testuser", "tokenId", null)
     );
-    verify(kick).unsubscribe("token", List.of("oldid1", "oldid2"));
+    verify(kick).unsubscribe(
+      "testuser",
+      "tokenId",
+      List.of("oldid1", "oldid2")
+    );
     verify(repository).deleteById("id");
   }
 
   @Test
   public void testDeletingSomeEvents() throws IOException {
-    when(kick.unsubscribe(anyString(), anyList())).thenReturn(
+    when(kick.unsubscribe(anyString(), anyString(), anyList())).thenReturn(
       CompletableFuture.completedFuture(null)
     );
     when(
@@ -78,12 +83,11 @@ public class UnsubscribeEventsHandlerTest {
     handler.handle(
       new UnsubscribeKickEventsCommand(
         "testuser",
-        "token",
         "tokenId",
         List.of("oldname1")
       )
     );
-    verify(kick).unsubscribe("token", List.of("oldid1"));
+    verify(kick).unsubscribe("testuser", "tokenId", List.of("oldid1"));
     verify(repository).update(
       argThat(it -> {
         return (
