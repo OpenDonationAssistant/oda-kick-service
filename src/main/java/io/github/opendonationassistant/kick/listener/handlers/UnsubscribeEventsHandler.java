@@ -1,7 +1,7 @@
 package io.github.opendonationassistant.kick.listener.handlers;
 
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickDataClient;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData.Subscription;
 import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
@@ -20,13 +20,13 @@ public class UnsubscribeEventsHandler
     UnsubscribeEventsHandler.UnsubscribeKickEventsCommand
   > {
 
-  private final KickClient kick;
+  private final KickDataClient kick;
   private final SubscriptionsDataRepository dataRepository;
 
   @Inject
   public UnsubscribeEventsHandler(
     ObjectMapper mapper,
-    KickClient kick,
+    KickDataClient kick,
     SubscriptionsDataRepository dataRepository
   ) {
     super(mapper);

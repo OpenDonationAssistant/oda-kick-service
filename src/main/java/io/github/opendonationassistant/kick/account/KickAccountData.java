@@ -1,4 +1,4 @@
-package io.github.opendonationassistant.kick.reward.repository;
+package io.github.opendonationassistant.kick.account;
 
 import io.micronaut.data.annotation.Id;
 import io.micronaut.data.annotation.MappedEntity;
@@ -7,10 +7,10 @@ import io.micronaut.data.model.DataType;
 import io.micronaut.serde.annotation.Serdeable;
 
 @Serdeable
-@MappedEntity("reward")
-public record RewardData(
-  @Id String id,
+@MappedEntity("accounts")
+public record KickAccountData(
+  @Id @MappedProperty("kick_id") String kickId,
+  String username,
   @MappedProperty(type = DataType.UUID) String recipientId,
-  @MappedProperty(type = DataType.UUID) String refreshTokenId,
-  @MappedProperty(type = DataType.UUID) String type
+  @MappedProperty(type = DataType.UUID) String refreshTokenId
 ) {}

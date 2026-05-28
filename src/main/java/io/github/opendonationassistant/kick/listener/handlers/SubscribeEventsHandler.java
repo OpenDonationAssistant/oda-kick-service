@@ -2,11 +2,11 @@ package io.github.opendonationassistant.kick.listener.handlers;
 
 import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.integration.KickClient.CreatedSubscription;
-import io.github.opendonationassistant.integration.KickClient.DataWrapper;
-import io.github.opendonationassistant.integration.KickClient.EventSubscription;
-import io.github.opendonationassistant.integration.KickClient.SubscriptionRequest;
+import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
+import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
+import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
+import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData.Subscription;
 import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
@@ -24,12 +24,12 @@ public class SubscribeEventsHandler
     SubscribeEventsHandler.SubscribeKickEventsCommand
   > {
 
-  private final KickClient kick;
+  private final KickDataClient kick;
   private final SubscriptionsDataRepository dataRepository;
 
   public SubscribeEventsHandler(
     ObjectMapper mapper,
-    KickClient kick,
+    KickDataClient kick,
     SubscriptionsDataRepository dataRepository
   ) {
     super(mapper);

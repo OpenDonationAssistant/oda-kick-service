@@ -22,7 +22,7 @@
     <micronaut.aot.enabled>false</micronaut.aot.enabled>
     <micronaut.aot.packageName>io.github.opendonationassistant.aot.generated</micronaut.aot.packageName>
     <exec.mainClass>io.github.opendonationassistant.Application</exec.mainClass>
-    <oda.version>0.10.209</oda.version>
+    <oda.version>0.10.214</oda.version>
   </properties>
 
   <repositories>

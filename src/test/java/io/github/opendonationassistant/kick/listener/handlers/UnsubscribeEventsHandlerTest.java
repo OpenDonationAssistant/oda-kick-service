@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickDataClient;
 import io.github.opendonationassistant.kick.listener.handlers.UnsubscribeEventsHandler.UnsubscribeKickEventsCommand;
 import io.github.opendonationassistant.kick.repository.SubscriptionsData;
 import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 public class UnsubscribeEventsHandlerTest {
 
   ObjectMapper mapper = ObjectMapper.getDefault();
-  KickClient kick = mock(KickClient.class);
+  KickDataClient kick = mock(KickDataClient.class);
   SubscriptionsDataRepository repository = mock(
     SubscriptionsDataRepository.class
   );

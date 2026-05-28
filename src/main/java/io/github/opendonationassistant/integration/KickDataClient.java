@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Client("kick-data")
-public interface KickClient {
+public interface KickDataClient {
   @Post("/public/v1/events/subscriptions")
   CompletableFuture<DataWrapper<List<CreatedSubscription>>> subscribe(
     @Header("Authorization") String token,
@@ -29,6 +29,12 @@ public interface KickClient {
   CompletableFuture<DataWrapper<Created>> createReward(
     @Header("Authorization") String token,
     @Body RewardRequest request
+  );
+
+  @Delete("/public/v1/channels/rewards/{id}")
+  CompletableFuture<Void> deleteReward(
+    @Header("Authorization") String token,
+    String id
   );
 
   @Serdeable
