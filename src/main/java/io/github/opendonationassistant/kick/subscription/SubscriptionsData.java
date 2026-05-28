@@ -1,4 +1,4 @@
-package io.github.opendonationassistant.kick.repository;
+package io.github.opendonationassistant.kick.subscription;
 
 import io.micronaut.data.annotation.Id;
 import io.micronaut.data.annotation.MappedEntity;

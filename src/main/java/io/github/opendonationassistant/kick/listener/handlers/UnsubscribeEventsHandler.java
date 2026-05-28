@@ -2,13 +2,14 @@ package io.github.opendonationassistant.kick.listener.handlers;
 
 import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.kick.repository.SubscriptionsData;
-import io.github.opendonationassistant.kick.repository.SubscriptionsData.Subscription;
-import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsData.Subscription;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

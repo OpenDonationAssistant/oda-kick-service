@@ -1,4 +1,4 @@
-package io.github.opendonationassistant.kick.repository;
+package io.github.opendonationassistant.kick.subscription;
 
 import io.micronaut.data.jdbc.annotation.JdbcRepository;
 import io.micronaut.data.model.query.builder.sql.Dialect;

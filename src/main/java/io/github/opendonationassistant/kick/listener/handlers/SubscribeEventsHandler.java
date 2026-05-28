@@ -7,12 +7,13 @@ import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscri
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
-import io.github.opendonationassistant.kick.repository.SubscriptionsData;
-import io.github.opendonationassistant.kick.repository.SubscriptionsData.Subscription;
-import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsData.Subscription;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Singleton;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;

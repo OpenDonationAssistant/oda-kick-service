@@ -6,15 +6,15 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
 import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.integration.KickDataClient;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
 import io.github.opendonationassistant.kick.listener.handlers.SubscribeEventsHandler.SubscribeKickEventsCommand;
-import io.github.opendonationassistant.kick.repository.SubscriptionsData;
-import io.github.opendonationassistant.kick.repository.SubscriptionsDataRepository;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
 import io.micronaut.serde.ObjectMapper;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
