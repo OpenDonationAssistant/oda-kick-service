@@ -4,7 +4,7 @@ datasources:
     username: ${JDBC_USER:`postgres`}
     password: ${JDBC_PASSWORD:`postgres`}
     schema: kick
-    maximumPoolSize: 1
+    maximumPoolSize: 2
 logger:
   levels:
     io.github.opendonationassistant: INFO

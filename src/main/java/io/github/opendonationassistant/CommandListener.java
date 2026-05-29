@@ -1,14 +1,32 @@
 package io.github.opendonationassistant;
 
 import io.github.opendonationassistant.events.MessageProcessor;
+import io.github.opendonationassistant.rabbit.Exchange;
 import io.micronaut.messaging.annotation.MessageHeader;
 import io.micronaut.rabbitmq.annotation.Queue;
 import io.micronaut.rabbitmq.annotation.RabbitListener;
 import io.micronaut.rabbitmq.bind.RabbitAcknowledgement;
 import jakarta.inject.Inject;
+import java.util.Map;
 
 @RabbitListener(executor = "command-listener")
 public class CommandListener {
+
+  public static final String QUEUE_NAME = "kick.commands";
+  public static final io.github.opendonationassistant.rabbit.Queue QUEUE =
+    new io.github.opendonationassistant.rabbit.Queue(QUEUE_NAME);
+
+  public static final Exchange BINDING = Exchange.Exchange(
+    "commands",
+    Map.of(
+      "command.SubscribeKickEventsCommand",
+      QUEUE,
+      "command.SubscribeAllKickEventsCommand",
+      QUEUE,
+      "command.UnsubscribeKickEventsCommand",
+      QUEUE
+    )
+  );
 
   private MessageProcessor processor;
 
@@ -17,7 +35,7 @@ public class CommandListener {
     this.processor = processor;
   }
 
-  @Queue("kick.commands")
+  @Queue(QUEUE_NAME)
   public void listenHistoryCommands(
     @MessageHeader("type") String type,
     byte[] payload,

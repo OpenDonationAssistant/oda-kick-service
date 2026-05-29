@@ -26,22 +26,7 @@ public class Application {
 
   @Singleton
   public ChannelInitializer rabbitConfiguration() {
-    var commands = new Queue("kick.command");
-    return new AMQPConfiguration(
-      List.of(
-        Exchange.Exchange(
-          "commands",
-          Map.of(
-            "command.SubscribeKickEventsCommand",
-            commands,
-            "command.SubscribeAllKickEventsCommand",
-            commands,
-            "command.UnsubscribeKickEventsCommand",
-            commands
-          )
-        )
-      )
-    );
+    return new AMQPConfiguration(List.of(CommandListener.BINDING));
   }
 
   @Singleton
