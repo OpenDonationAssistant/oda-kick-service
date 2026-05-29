@@ -1,0 +1,19 @@
+name: Release
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  build-and-deploy:
+    uses: "OpenDonationAssistant/oda-libraries/.github/workflows/release_service.yml@master"
+    secrets: inherit
+    with:
+      service: kick-service
+      version: "${{ github.RUN_NUMBER }}"
+      npm: false
