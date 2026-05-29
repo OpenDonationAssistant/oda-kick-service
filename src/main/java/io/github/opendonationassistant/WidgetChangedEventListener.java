@@ -1,10 +1,10 @@
-package io.github.opendonationassistant.kick.listener;
+package io.github.opendonationassistant;
 
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.impl.TimeBasedEpochGenerator;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.kick.reward.repository.RewardRepository;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
@@ -27,14 +27,14 @@ public class WidgetChangedEventListener
     Generators.timeBasedEpochGenerator();
   private final RewardRepository rewardRepository;
   // private final TwitchAccountRepository accountRepository;
-  private final KickDataClient kick;
+  private final KickClient kick;
 
   @Inject
   public WidgetChangedEventListener(
     ObjectMapper mapper,
     RewardRepository rewardRepository,
     // TwitchAccountRepository accountRepository,
-    KickDataClient kick
+    KickClient kick
   ) {
     super(mapper);
     this.rewardRepository = rewardRepository;
@@ -80,8 +80,6 @@ public class WidgetChangedEventListener
     // rewardRepository.deleteByRecipientId(recipientId);
 
     // processSystem(properties, "kick", recipientId, refreshTokenId);
-    // processSystem(properties, "vklive", recipientId, refreshTokenId);
-    // processSystem(properties, "kick", recipientId, refreshTokenId);
   }
 
   private void processSystem(
@@ -115,6 +113,7 @@ public class WidgetChangedEventListener
     if (cost == null) {
       return;
     }
+    
     // twitch
     //   .createCustomReward(
     //     recipientId,

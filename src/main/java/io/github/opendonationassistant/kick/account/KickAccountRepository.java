@@ -15,6 +15,7 @@ public class KickAccountRepository {
   }
 
   public CompletableFuture<KickAccount> create(KickAccountData data) {
+    repository.save(data);
     return CompletableFuture.completedFuture(new KickAccount(data));
   }
 }
