@@ -58,6 +58,7 @@ public class KickClient {
       tokenRPC.token(new TokenRPC.TokenRequest(recipientId, refreshTokenId))
     )
       .map(TokenRPC.TokenResponse::token)
+      .map(t -> "Bearer " + t)
       .orElseThrow(() ->
         Problem.builder().withTitle("Can't obtain access token").build()
       );
