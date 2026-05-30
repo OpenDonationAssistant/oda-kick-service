@@ -48,7 +48,7 @@ public interface KickDataClient {
 
   @Serdeable
   public static record SubscriptionRequest(
-    List<EventSubscription> subscriptions,
+    List<EventSubscription> events,
     String method
   ) {}
 
