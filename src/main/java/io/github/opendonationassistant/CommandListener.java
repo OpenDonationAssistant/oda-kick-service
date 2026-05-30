@@ -24,6 +24,8 @@ public class CommandListener {
       "command.SubscribeAllKickEventsCommand",
       QUEUE,
       "command.UnsubscribeKickEventsCommand",
+      QUEUE,
+      "command.LinkKickAccount",
       QUEUE
     )
   );
