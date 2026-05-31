@@ -6,4 +6,9 @@ import io.micronaut.data.repository.CrudRepository;
 
 @JdbcRepository(dialect = Dialect.POSTGRES)
 public interface KickAccountDataRepository
-  extends CrudRepository<KickAccountData, String> {}
+  extends CrudRepository<KickAccountData, String> {
+  void deleteByRecipientIdAndRefreshTokenId(
+    String recipientId,
+    String refreshTokenId
+  );
+}

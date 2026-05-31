@@ -18,4 +18,15 @@ public class KickAccountRepository {
     repository.save(data);
     return CompletableFuture.completedFuture(new KickAccount(data));
   }
+
+  public CompletableFuture<Void> delete(
+    String recipientId,
+    String refreshTokenId
+  ) {
+    repository.deleteByRecipientIdAndRefreshTokenId(
+      recipientId,
+      refreshTokenId
+    );
+    return CompletableFuture.completedFuture(null);
+  }
 }
