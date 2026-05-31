@@ -1,6 +1,7 @@
 package io.github.opendonationassistant.integration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.micronaut.core.convert.format.Format;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Header;
@@ -22,7 +23,7 @@ public interface KickDataClient {
   @Delete("/public/v1/events/subscriptions")
   CompletableFuture<Void> unsubscribe(
     @Header("Authorization") String token,
-    @QueryValue("id") List<String> ids
+    @QueryValue("id") @Format("multi") List<String> ids
   );
 
   @Post("/public/v1/channels/rewards")
