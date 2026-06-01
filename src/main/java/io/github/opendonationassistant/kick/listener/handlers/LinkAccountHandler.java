@@ -1,11 +1,15 @@
 package io.github.opendonationassistant.kick.listener.handlers;
 
+import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
+import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Singleton;
 import java.io.IOException;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Singleton
 public class LinkAccountHandler
@@ -32,14 +36,24 @@ public class LinkAccountHandler
   @Override
   public void handle(LinkKickAccount message) throws IOException {
     repository
-      .create(
-        new io.github.opendonationassistant.kick.account.KickAccountData(
-          message.kickId(),
-          message.username(),
-          message.recipientId(),
-          message.refreshTokenId()
-        )
+      .findByRecipientIdAndRefreshTokenId(
+        message.recipientId(),
+        message.refreshTokenId()
       )
+      .thenCompose(existed -> {
+        if (existed.isPresent()) {
+          return CompletableFuture.completedFuture(null);
+        }
+        return repository.create(
+          new io.github.opendonationassistant.kick.account.KickAccountData(
+            Generators.timeBasedEpochGenerator().generate().toString(),
+            message.kickId(),
+            message.username(),
+            message.recipientId(),
+            message.refreshTokenId()
+          )
+        );
+      })
       .join();
   }
 }

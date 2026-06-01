@@ -9,7 +9,8 @@ import io.micronaut.serde.annotation.Serdeable;
 @Serdeable
 @MappedEntity("accounts")
 public record KickAccountData(
-  @Id @MappedProperty("kick_id") String kickId,
+  @Id @MappedProperty(type = DataType.UUID) String id,
+  @MappedProperty("kick_id") String kickId,
   String username,
   @MappedProperty String recipientId,
   @MappedProperty(type = DataType.UUID) String refreshTokenId

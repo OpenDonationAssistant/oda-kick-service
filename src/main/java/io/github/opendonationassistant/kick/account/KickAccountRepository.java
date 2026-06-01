@@ -2,6 +2,7 @@ package io.github.opendonationassistant.kick.account;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Singleton
@@ -17,6 +18,19 @@ public class KickAccountRepository {
   public CompletableFuture<KickAccount> create(KickAccountData data) {
     repository.save(data);
     return CompletableFuture.completedFuture(new KickAccount(data));
+  }
+
+  public CompletableFuture<
+    Optional<KickAccount>
+  > findByRecipientIdAndRefreshTokenId(
+    String recipientId,
+    String refreshTokenId
+  ) {
+    return CompletableFuture.completedFuture(
+      repository
+        .findOneByRecipientIdAndRefreshTokenId(recipientId, refreshTokenId)
+        .map(KickAccount::new)
+    );
   }
 
   public CompletableFuture<Void> delete(
