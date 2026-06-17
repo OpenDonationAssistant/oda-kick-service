@@ -12,6 +12,8 @@ import io.micronaut.serde.annotation.Serdeable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.jspecify.annotations.Nullable;
+
 @Client("kick-data")
 public interface KickDataClient {
   @Post("/public/v1/events/subscriptions")
@@ -44,7 +46,7 @@ public interface KickDataClient {
     String description,
     Integer cost,
     @JsonProperty("is_user_input_required") Boolean isUserInputRequired,
-    String backgroundColor
+    @Nullable String backgroundColor
   ) {}
 
   @Serdeable

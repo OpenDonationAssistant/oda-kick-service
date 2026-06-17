@@ -1,8 +1,6 @@
 package io.github.opendonationassistant;
 
 import io.github.opendonationassistant.rabbit.AMQPConfiguration;
-import io.github.opendonationassistant.rabbit.Exchange;
-import io.github.opendonationassistant.rabbit.Queue;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.rabbitmq.connect.ChannelInitializer;
@@ -14,7 +12,6 @@ import io.swagger.v3.oas.annotations.info.Info;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.List;
-import java.util.Map;
 
 @OpenAPIDefinition(info = @Info(title = "oda-kick-service"))
 @Factory

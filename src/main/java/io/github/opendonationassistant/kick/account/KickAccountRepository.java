@@ -20,6 +20,14 @@ public class KickAccountRepository {
     return CompletableFuture.completedFuture(new KickAccount(data));
   }
 
+  public CompletableFuture<Optional<KickAccount>> findByRecipientId(
+    String recipientId
+  ) {
+    return CompletableFuture.completedFuture(
+      repository.findOneByRecipientId(recipientId).map(KickAccount::new)
+    );
+  }
+
   public CompletableFuture<
     Optional<KickAccount>
   > findByRecipientIdAndRefreshTokenId(

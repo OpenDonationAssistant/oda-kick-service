@@ -1,6 +1,6 @@
 package io.github.opendonationassistant.kick.reward.repository;
 
-import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.serde.annotation.Serdeable;
 
@@ -8,9 +8,9 @@ public class Reward {
 
   private final RewardData data;
   private final RabbitClient rabbit;
-  private final KickDataClient kick;
+  private final KickClient kick;
 
-  public Reward(RewardData data, RabbitClient rabbit, KickDataClient kick) {
+  public Reward(RewardData data, RabbitClient rabbit, KickClient kick) {
     this.data = data;
     this.rabbit = rabbit;
     this.kick = kick;

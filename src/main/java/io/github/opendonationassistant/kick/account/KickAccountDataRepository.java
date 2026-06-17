@@ -8,6 +8,7 @@ import java.util.Optional;
 @JdbcRepository(dialect = Dialect.POSTGRES)
 public interface KickAccountDataRepository
   extends CrudRepository<KickAccountData, String> {
+  Optional<KickAccountData> findOneByRecipientId(String recipientId);
   void deleteByRecipientIdAndRefreshTokenId(
     String recipientId,
     String refreshTokenId

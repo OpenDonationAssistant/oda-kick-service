@@ -5,6 +5,9 @@ import com.fasterxml.uuid.impl.TimeBasedEpochGenerator;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickDataClient.Created;
+import io.github.opendonationassistant.kick.account.KickAccountRepository;
 import io.github.opendonationassistant.kick.reward.repository.RewardRepository;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
@@ -26,18 +29,19 @@ public class WidgetChangedEventListener
   private final TimeBasedEpochGenerator uuid =
     Generators.timeBasedEpochGenerator();
   private final RewardRepository rewardRepository;
-  // private final TwitchAccountRepository accountRepository;
+  private final KickAccountRepository accountRepository;
   private final KickClient kick;
 
   @Inject
   public WidgetChangedEventListener(
     ObjectMapper mapper,
     RewardRepository rewardRepository,
-    // TwitchAccountRepository accountRepository,
+    KickAccountRepository accountRepository,
     KickClient kick
   ) {
     super(mapper);
     this.rewardRepository = rewardRepository;
+    this.accountRepository = accountRepository;
     this.kick = kick;
   }
 
@@ -69,7 +73,20 @@ public class WidgetChangedEventListener
     if (ownerId == null) {
       return;
     }
-    // var account = accountRepository.findByRecipientId(ownerId);
+    var widgetId = widget.id();
+    accountRepository
+      .findByRecipientId(ownerId)
+      .thenAccept(account -> {
+        account.ifPresent(it -> {
+          processSystem(
+            widgetId,
+            properties,
+            "kick",
+            ownerId,
+            it.data().refreshTokenId()
+          );
+        });
+      });
     // if (account.isEmpty()) {
     //   return;
     // }
@@ -77,12 +94,12 @@ public class WidgetChangedEventListener
     // var refreshTokenId = account
     // var recipientId = ownerId;
 
-    // rewardRepository.deleteByRecipientId(recipientId);
-
+    // rewardRepository.deleteByRecipientId(ownerId);
     // processSystem(properties, "kick", recipientId, refreshTokenId);
   }
 
   private void processSystem(
+    String widgetId,
     List<WidgetProperty> properties,
     String system,
     String recipientId,
@@ -113,39 +130,7 @@ public class WidgetChangedEventListener
     if (cost == null) {
       return;
     }
-    
-    // twitch
-    //   .createCustomReward(
-    //     recipientId,
-    //     refreshTokenId,
-    //     new TwitchApiClient.CreateCustomRewardRequest(
-    //       title,
-    //       cost,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null,
-    //       null
-    //     )
-    //   )
-    //   .join()
-    //   .data()
-    //   .forEach(reward -> {
-    //     rewardRepository.save(
-    //       new TwitchRewardData(
-    //         reward.id(),
-    //         recipientId,
-    //         refreshTokenId,
-    //         "music"
-    //       )
-    //     );
-    //   });
+    rewardRepository.create(title, widgetId, cost, recipientId, refreshTokenId).join();
   }
 
   private boolean findBoolProperty(

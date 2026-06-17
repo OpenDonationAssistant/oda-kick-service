@@ -9,8 +9,9 @@ import io.micronaut.serde.annotation.Serdeable;
 @Serdeable
 @MappedEntity("reward")
 public record RewardData(
-  @Id String id,
-  @MappedProperty(type = DataType.UUID) String recipientId,
+  @Id @MappedProperty(type = DataType.UUID) String id,
+  String widgetId,
+  @MappedProperty String recipientId,
   @MappedProperty(type = DataType.UUID) String refreshTokenId,
-  @MappedProperty(type = DataType.UUID) String type
+  @MappedProperty String type
 ) {}
