@@ -4,12 +4,14 @@ import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
+import io.github.opendonationassistant.rabbit.Exchange;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 @Singleton
@@ -20,6 +22,14 @@ public class WidgetChangedEventListener
 
   private ODALogger log = new ODALogger(this);
   private static final String WIDGET_TYPE = "media";
+
+  public static final String QUEUE_NAME = "kick.config-music";
+  public static final io.github.opendonationassistant.rabbit.Queue QUEUE =
+    new io.github.opendonationassistant.rabbit.Queue(QUEUE_NAME);
+  public static final Exchange BINDING = Exchange.Exchange(
+    "changes.widgets",
+    Map.of("media", WidgetChangedEventListener.QUEUE)
+  );
 
   private final KickAccountRepository accountRepository;
 

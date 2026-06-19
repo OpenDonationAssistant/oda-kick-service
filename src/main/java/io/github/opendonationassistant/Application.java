@@ -23,7 +23,9 @@ public class Application {
 
   @Singleton
   public ChannelInitializer rabbitConfiguration() {
-    return new AMQPConfiguration(List.of(CommandListener.BINDING));
+    return new AMQPConfiguration(
+      List.of(CommandListener.BINDING, WidgetChangedEventListener.BINDING)
+    );
   }
 
   @Singleton
