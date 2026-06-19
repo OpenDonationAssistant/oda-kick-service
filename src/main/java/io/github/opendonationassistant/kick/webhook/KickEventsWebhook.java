@@ -2,6 +2,7 @@ package io.github.opendonationassistant.kick.webhook;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.opendonationassistant.commons.logging.ODALogger;
+import io.github.opendonationassistant.kick.account.KickAccountRepository;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Header;
@@ -10,6 +11,7 @@ import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.rules.SecurityRule;
 import io.micronaut.serde.annotation.Serdeable;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -17,6 +19,12 @@ import java.util.concurrent.CompletableFuture;
 public class KickEventsWebhook {
 
   private ODALogger log = new ODALogger(this);
+  private final KickAccountRepository accountRepository;
+
+  @Inject
+  public KickEventsWebhook(KickAccountRepository accountRepository) {
+    this.accountRepository = accountRepository;
+  }
 
   @Post("/kick/events")
   @Operation(hidden = true)
@@ -26,7 +34,19 @@ public class KickEventsWebhook {
     @Body KickEvent event
   ) {
     log.info("Received kick event", Map.of("type", type, "body", event));
-    return CompletableFuture.completedFuture(null);
+    return accountRepository
+      .findByKickId(event.broadcaster.id())
+      .thenAccept(it ->
+        it.ifPresentOrElse(
+          account -> account.handleEvent(event),
+          () -> {
+            log.info(
+              "Account not found",
+              Map.of("kickId", event.broadcaster().id())
+            );
+          }
+        )
+      );
   }
 
   @Serdeable

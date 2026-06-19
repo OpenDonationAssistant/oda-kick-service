@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface KickAccountDataRepository
   extends CrudRepository<KickAccountData, String> {
   Optional<KickAccountData> findOneByRecipientId(String recipientId);
+  Optional<KickAccountData> findOneByKickId(String kickId);
   void deleteByRecipientIdAndRefreshTokenId(
     String recipientId,
     String refreshTokenId
