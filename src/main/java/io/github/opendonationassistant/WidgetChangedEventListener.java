@@ -113,7 +113,7 @@ public class WidgetChangedEventListener
     if (cost == null) {
       return;
     }
-    account.createReward(widgetId, "media", title, cost);
+    account.createReward(widgetId, "media", title, cost).join();
   }
 
   private boolean findBoolProperty(
