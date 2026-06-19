@@ -5,16 +5,17 @@ import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
 import io.github.opendonationassistant.rabbit.Exchange;
+import io.micronaut.rabbitmq.annotation.Queue;
+import io.micronaut.rabbitmq.annotation.RabbitListener;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-@Singleton
+@RabbitListener
 public class WidgetChangedEventListener
   extends AbstractMessageHandler<
     WidgetChangedEventListener.WidgetChangedEvent
@@ -42,7 +43,7 @@ public class WidgetChangedEventListener
     this.accountRepository = accountRepository;
   }
 
-  @Override
+  @Queue(QUEUE_NAME)
   public void handle(WidgetChangedEvent event) throws IOException {
     if (!"updated".equals(event.type())) {
       return;
