@@ -1,30 +1,24 @@
 package io.github.opendonationassistant.kick.reward.repository;
 
-import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.serde.annotation.Serdeable;
 
 public class Reward {
 
   private final RewardData data;
-  private final RabbitClient rabbit;
-  private final KickClient kick;
 
-  public Reward(RewardData data, RabbitClient rabbit, KickClient kick) {
+  public Reward(RewardData data) {
     this.data = data;
-    this.rabbit = rabbit;
-    this.kick = kick;
   }
 
   public RewardData data() {
     return data;
   }
 
-  public void sendAddMediaCommand(String url, String requester) {
-    rabbit.sendCommand(
-      new AddMediaCommand(url, requester, data.recipientId(), "kick")
-    );
-  }
+  // public void sendAddMediaCommand(String url, String requester) {
+  //   rabbit.sendCommand(
+  //     new AddMediaCommand(url, requester, data.recipientId(), "kick")
+  //   );
+  // }
 
   @Serdeable
   public static record AddMediaCommand(

@@ -1,14 +1,9 @@
 package io.github.opendonationassistant;
 
-import com.fasterxml.uuid.Generators;
-import com.fasterxml.uuid.impl.TimeBasedEpochGenerator;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.integration.KickDataClient;
-import io.github.opendonationassistant.integration.KickDataClient.Created;
+import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
-import io.github.opendonationassistant.kick.reward.repository.RewardRepository;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Inject;
@@ -26,23 +21,15 @@ public class WidgetChangedEventListener
   private ODALogger log = new ODALogger(this);
   private static final String WIDGET_TYPE = "media";
 
-  private final TimeBasedEpochGenerator uuid =
-    Generators.timeBasedEpochGenerator();
-  private final RewardRepository rewardRepository;
   private final KickAccountRepository accountRepository;
-  private final KickClient kick;
 
   @Inject
   public WidgetChangedEventListener(
     ObjectMapper mapper,
-    RewardRepository rewardRepository,
-    KickAccountRepository accountRepository,
-    KickClient kick
+    KickAccountRepository accountRepository
   ) {
     super(mapper);
-    this.rewardRepository = rewardRepository;
     this.accountRepository = accountRepository;
-    this.kick = kick;
   }
 
   @Override
@@ -78,32 +65,17 @@ public class WidgetChangedEventListener
       .findByRecipientId(ownerId)
       .thenAccept(account -> {
         account.ifPresent(it -> {
-          processSystem(
-            widgetId,
-            properties,
-            "kick",
-            ownerId,
-            it.data().refreshTokenId()
-          );
+          processSystem(widgetId, properties, "kick", it);
         });
-      });
-    // if (account.isEmpty()) {
-    //   return;
-    // }
-
-    // var refreshTokenId = account
-    // var recipientId = ownerId;
-
-    // rewardRepository.deleteByRecipientId(ownerId);
-    // processSystem(properties, "kick", recipientId, refreshTokenId);
+      })
+      .join();
   }
 
   private void processSystem(
     String widgetId,
     List<WidgetProperty> properties,
     String system,
-    String recipientId,
-    String refreshTokenId
+    KickAccount account
   ) {
     var enabled = findBoolProperty(
       properties,
@@ -130,7 +102,7 @@ public class WidgetChangedEventListener
     if (cost == null) {
       return;
     }
-    rewardRepository.create(title, widgetId, cost, recipientId, refreshTokenId).join();
+    account.createReward(widgetId, "media", title, cost);
   }
 
   private boolean findBoolProperty(
