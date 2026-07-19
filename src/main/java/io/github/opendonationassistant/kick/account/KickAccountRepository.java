@@ -4,6 +4,7 @@ import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.kick.reward.repository.RewardDataRepository;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -21,7 +22,7 @@ public class KickAccountRepository {
     KickAccountDataRepository repository,
     KickClient kick,
     RewardDataRepository rewardRepository,
-    RabbitClient rabbit
+    @Named("commands") RabbitClient rabbit
   ) {
     this.rewardRepository = rewardRepository;
     this.kick = kick;

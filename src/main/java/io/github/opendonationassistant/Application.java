@@ -33,4 +33,10 @@ public class Application {
   public RabbitClient commandsFacade(ChannelPool pool, ObjectMapper mapper) {
     return new RabbitClient(pool, mapper, "commands");
   }
+
+  @Singleton
+  @Named("events")
+  public RabbitClient kickFacade(ChannelPool pool, ObjectMapper mapper) {
+    return new RabbitClient(pool, mapper, "kick");
+  }
 }
