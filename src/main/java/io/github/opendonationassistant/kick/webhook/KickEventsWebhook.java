@@ -5,6 +5,9 @@ import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
 import io.github.opendonationassistant.kick.events.KickChannelFollowEvent;
+import io.github.opendonationassistant.kick.events.KickChannelSubscribeEvent;
+import io.github.opendonationassistant.kick.events.KickChannelSubscriptionGiftEvent;
+import io.github.opendonationassistant.kick.events.KickStreamStartedEvent;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -19,6 +22,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -54,10 +58,14 @@ public class KickEventsWebhook {
       "Received kick event",
       Map.of("type", type, "version", version, "body", body)
     );
-    if ("channel.followed".equals(type)) {
-      return handleChannelFollowed(body);
-    }
-    return handleRewardEvent(body);
+    return switch (type) {
+      case "channel.followed" -> handleChannelFollowed(body);
+      case "livestream.status.updated" -> handleLivestreamStatusUpdated(body);
+      case "channel.subscription.new" -> handleChannelSubscribe(body);
+      case "channel.subscription.renewal" -> handleChannelSubscribe(body);
+      case "channel.subscription.gifts" -> handleChannelSubscriptionGift(body);
+      default -> handleRewardEvent(body);
+    };
   }
 
   private CompletableFuture<Void> handleChannelFollowed(String body) {
@@ -100,6 +108,151 @@ public class KickEventsWebhook {
     } catch (IOException e) {
       log.error(
         "Failed to parse channel.followed event",
+        Map.of("error", e.getMessage())
+      );
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> handleLivestreamStatusUpdated(String body) {
+    try {
+      var payload = java.util.Objects.requireNonNull(
+        mapper.readValue(body, KickLivestreamStatusUpdatedPayload.class)
+      );
+      if (!payload.isLive()) {
+        log.info("Stream ended, ignoring", Map.of());
+        return CompletableFuture.completedFuture(null);
+      }
+      return accountRepository
+        .findByKickId(payload.broadcaster().id())
+        .thenAccept(it ->
+          it.ifPresentOrElse(
+            account -> {
+              var streamStartedEvent = new KickStreamStartedEvent(
+                Generators.timeBasedEpochGenerator().generate().toString(),
+                account.data().recipientId(),
+                payload.title(),
+                payload.broadcaster().profilePicture(),
+                payload.startedAt()
+              );
+              try {
+                kickFacade.sendEvent(streamStartedEvent);
+              } catch (Exception e) {
+                log.error(
+                  "Failed to send stream started event",
+                  Map.of(
+                    "error",
+                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
+                    "recipientId",
+                    account.data().recipientId()
+                  )
+                );
+              }
+            },
+            () ->
+              log.info(
+                "Account not found",
+                Map.of("kickId", payload.broadcaster().id())
+              )
+          )
+        );
+    } catch (IOException e) {
+      log.error(
+        "Failed to parse livestream.status.updated event",
+        Map.of("error", e.getMessage())
+      );
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> handleChannelSubscribe(String body) {
+    try {
+      var payload = java.util.Objects.requireNonNull(
+        mapper.readValue(body, KickChannelSubscribePayload.class)
+      );
+      return accountRepository
+        .findByKickId(payload.broadcaster().id())
+        .thenAccept(it ->
+          it.ifPresentOrElse(
+            account -> {
+              var subscribeEvent = new KickChannelSubscribeEvent(
+                Generators.timeBasedEpochGenerator().generate().toString(),
+                account.data().recipientId(),
+                payload.subscriber().username(),
+                payload.duration(),
+                payload.createdAt()
+              );
+              try {
+                kickFacade.sendEvent(subscribeEvent);
+              } catch (Exception e) {
+                log.error(
+                  "Failed to send subscribe event",
+                  Map.of(
+                    "error",
+                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
+                    "recipientId",
+                    account.data().recipientId()
+                  )
+                );
+              }
+            },
+            () ->
+              log.info(
+                "Account not found",
+                Map.of("kickId", payload.broadcaster().id())
+              )
+          )
+        );
+    } catch (IOException e) {
+      log.error(
+        "Failed to parse channel.subscription.new event",
+        Map.of("error", e.getMessage())
+      );
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> handleChannelSubscriptionGift(String body) {
+    try {
+      var payload = java.util.Objects.requireNonNull(
+        mapper.readValue(body, KickChannelSubscriptionGiftPayload.class)
+      );
+      return accountRepository
+        .findByKickId(payload.broadcaster().id())
+        .thenAccept(it ->
+          it.ifPresentOrElse(
+            account -> {
+              var giftEvent = new KickChannelSubscriptionGiftEvent(
+                Generators.timeBasedEpochGenerator().generate().toString(),
+                account.data().recipientId(),
+                payload.gifter().username(),
+                payload.giftees().size(),
+                payload.createdAt()
+              );
+              try {
+                kickFacade.sendEvent(giftEvent);
+              } catch (Exception e) {
+                log.error(
+                  "Failed to send subscription gift event",
+                  Map.of(
+                    "error",
+                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
+                    "recipientId",
+                    account.data().recipientId()
+                  )
+                );
+              }
+            },
+            () ->
+              log.info(
+                "Account not found",
+                Map.of("kickId", payload.broadcaster().id())
+              )
+          )
+        );
+    } catch (IOException e) {
+      log.error(
+        "Failed to parse channel.subscription.gifts event",
         Map.of("error", e.getMessage())
       );
       return CompletableFuture.completedFuture(null);
@@ -154,5 +307,38 @@ public class KickEventsWebhook {
   public static record KickChannelFollowedPayload(
     KickUser broadcaster,
     KickUser follower
+  ) {}
+
+  @Serdeable
+  public static record KickLivestreamStatusUpdatedPayload(
+    KickStreamBroadcaster broadcaster,
+    @JsonProperty("is_live") boolean isLive,
+    String title,
+    @JsonProperty("started_at") Instant startedAt,
+    @JsonProperty("ended_at") Instant endedAt
+  ) {
+    @Serdeable
+    public static record KickStreamBroadcaster(
+      @JsonProperty("user_id") String id,
+      @JsonProperty("profile_picture") String profilePicture
+    ) {}
+  }
+
+  @Serdeable
+  public static record KickChannelSubscribePayload(
+    KickUser broadcaster,
+    KickUser subscriber,
+    Integer duration,
+    @JsonProperty("created_at") Instant createdAt,
+    @JsonProperty("expires_at") Instant expiresAt
+  ) {}
+
+  @Serdeable
+  public static record KickChannelSubscriptionGiftPayload(
+    KickUser broadcaster,
+    KickUser gifter,
+    List<KickUser> giftees,
+    @JsonProperty("created_at") Instant createdAt,
+    @JsonProperty("expires_at") Instant expiresAt
   ) {}
 }
