@@ -32,3 +32,8 @@ flyway:
   datasources:
     default:
       enabled: true
+endpoints:
+  prometheus:
+    sensitive: false
+  metrics:
+    sensitive: false

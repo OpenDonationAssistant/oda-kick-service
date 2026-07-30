@@ -15,33 +15,32 @@ public class KickAccountRepository {
   private final KickAccountDataRepository repository;
   private final RewardDataRepository rewardRepository;
   private final KickClient kick;
-  private final RabbitClient rabbit;
+  private final RabbitClient commandsRabbit;
+  private final RabbitClient eventsRabbit;
 
   @Inject
   public KickAccountRepository(
     KickAccountDataRepository repository,
     KickClient kick,
     RewardDataRepository rewardRepository,
-    @Named("commands") RabbitClient rabbit
+    @Named("commands") RabbitClient commandsRabbit,
+    @Named("events") RabbitClient eventsRabbit
   ) {
     this.rewardRepository = rewardRepository;
     this.kick = kick;
     this.repository = repository;
-    this.rabbit = rabbit;
+    this.commandsRabbit = commandsRabbit;
+    this.eventsRabbit = eventsRabbit;
   }
 
   public CompletableFuture<KickAccount> create(KickAccountData data) {
     repository.save(data);
-    return CompletableFuture.completedFuture(
-      new KickAccount(rewardRepository, kick, rabbit, data)
-    );
+    return CompletableFuture.completedFuture(convert(data));
   }
 
   public CompletableFuture<Optional<KickAccount>> findByKickId(String kickId) {
     return CompletableFuture.completedFuture(
-      repository
-        .findOneByKickId(kickId)
-        .map(it -> new KickAccount(rewardRepository, kick, rabbit, it))
+      repository.findOneByKickId(kickId).map(it -> convert(it))
     );
   }
 
@@ -49,9 +48,7 @@ public class KickAccountRepository {
     String recipientId
   ) {
     return CompletableFuture.completedFuture(
-      repository
-        .findOneByRecipientId(recipientId)
-        .map(it -> new KickAccount(rewardRepository, kick, rabbit, it))
+      repository.findOneByRecipientId(recipientId).map(it -> convert(it))
     );
   }
 
@@ -64,8 +61,12 @@ public class KickAccountRepository {
     return CompletableFuture.completedFuture(
       repository
         .findOneByRecipientIdAndRefreshTokenId(recipientId, refreshTokenId)
-        .map(it -> new KickAccount(rewardRepository, kick, rabbit, it))
+        .map(it -> convert(it))
     );
+  }
+
+  private KickAccount convert(KickAccountData data) {
+    return new KickAccount(rewardRepository, kick, commandsRabbit, eventsRabbit, data);
   }
 
   public CompletableFuture<Void> delete(

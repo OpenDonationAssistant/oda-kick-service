@@ -1,14 +1,8 @@
 package io.github.opendonationassistant.kick.webhook;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
-import io.github.opendonationassistant.kick.events.KickChannelFollowEvent;
-import io.github.opendonationassistant.kick.events.KickChannelSubscribeEvent;
-import io.github.opendonationassistant.kick.events.KickChannelSubscriptionGiftEvent;
-import io.github.opendonationassistant.kick.events.KickStreamStartedEvent;
-import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Header;
@@ -19,12 +13,10 @@ import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Controller
@@ -32,17 +24,14 @@ public class KickEventsWebhook {
 
   private final ODALogger log = new ODALogger(this);
   private final KickAccountRepository accountRepository;
-  private final RabbitClient kickFacade;
   private final ObjectMapper mapper;
 
   @Inject
   public KickEventsWebhook(
     KickAccountRepository accountRepository,
-    @Named("events") RabbitClient kickFacade,
     ObjectMapper mapper
   ) {
     this.accountRepository = accountRepository;
-    this.kickFacade = kickFacade;
     this.mapper = mapper;
   }
 
@@ -61,9 +50,11 @@ public class KickEventsWebhook {
     return switch (type) {
       case "channel.followed" -> handleChannelFollowed(body);
       case "livestream.status.updated" -> handleLivestreamStatusUpdated(body);
+      case "livestream.metadata.updated" -> handleLivestreamMetadataUpdated(body);
       case "channel.subscription.new" -> handleChannelSubscribe(body);
       case "channel.subscription.renewal" -> handleChannelSubscribe(body);
       case "channel.subscription.gifts" -> handleChannelSubscriptionGift(body);
+      case "kicks.gifted" -> handleKicksGifted(body);
       default -> handleRewardEvent(body);
     };
   }
@@ -77,27 +68,7 @@ public class KickEventsWebhook {
         .findByKickId(payload.broadcaster().id())
         .thenAccept(it ->
           it.ifPresentOrElse(
-            account -> {
-              var followEvent = new KickChannelFollowEvent(
-                Generators.timeBasedEpochGenerator().generate().toString(),
-                account.data().recipientId(),
-                payload.follower().username(),
-                Instant.now()
-              );
-              try {
-                kickFacade.sendEvent(followEvent);
-              } catch (Exception e) {
-                log.error(
-                  "Failed to send follow event",
-                  Map.of(
-                    "error",
-                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
-                    "recipientId",
-                    account.data().recipientId()
-                  )
-                );
-              }
-            },
+            account -> account.handleFollow(payload.follower().username()),
             () ->
               log.info(
                 "Account not found",
@@ -127,28 +98,12 @@ public class KickEventsWebhook {
         .findByKickId(payload.broadcaster().id())
         .thenAccept(it ->
           it.ifPresentOrElse(
-            account -> {
-              var streamStartedEvent = new KickStreamStartedEvent(
-                Generators.timeBasedEpochGenerator().generate().toString(),
-                account.data().recipientId(),
+            account ->
+              account.handleStreamChange(
                 payload.title(),
                 payload.broadcaster().profilePicture(),
                 payload.startedAt()
-              );
-              try {
-                kickFacade.sendEvent(streamStartedEvent);
-              } catch (Exception e) {
-                log.error(
-                  "Failed to send stream started event",
-                  Map.of(
-                    "error",
-                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
-                    "recipientId",
-                    account.data().recipientId()
-                  )
-                );
-              }
-            },
+              ),
             () ->
               log.info(
                 "Account not found",
@@ -174,28 +129,12 @@ public class KickEventsWebhook {
         .findByKickId(payload.broadcaster().id())
         .thenAccept(it ->
           it.ifPresentOrElse(
-            account -> {
-              var subscribeEvent = new KickChannelSubscribeEvent(
-                Generators.timeBasedEpochGenerator().generate().toString(),
-                account.data().recipientId(),
+            account ->
+              account.handleSubscription(
                 payload.subscriber().username(),
                 payload.duration(),
                 payload.createdAt()
-              );
-              try {
-                kickFacade.sendEvent(subscribeEvent);
-              } catch (Exception e) {
-                log.error(
-                  "Failed to send subscribe event",
-                  Map.of(
-                    "error",
-                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
-                    "recipientId",
-                    account.data().recipientId()
-                  )
-                );
-              }
-            },
+              ),
             () ->
               log.info(
                 "Account not found",
@@ -221,28 +160,12 @@ public class KickEventsWebhook {
         .findByKickId(payload.broadcaster().id())
         .thenAccept(it ->
           it.ifPresentOrElse(
-            account -> {
-              var giftEvent = new KickChannelSubscriptionGiftEvent(
-                Generators.timeBasedEpochGenerator().generate().toString(),
-                account.data().recipientId(),
+            account ->
+              account.handleSubscriptionGift(
                 payload.gifter().username(),
                 payload.giftees().size(),
                 payload.createdAt()
-              );
-              try {
-                kickFacade.sendEvent(giftEvent);
-              } catch (Exception e) {
-                log.error(
-                  "Failed to send subscription gift event",
-                  Map.of(
-                    "error",
-                    Optional.ofNullable(e.getMessage()).orElse("Unknown error"),
-                    "recipientId",
-                    account.data().recipientId()
-                  )
-                );
-              }
-            },
+              ),
             () ->
               log.info(
                 "Account not found",
@@ -262,13 +185,13 @@ public class KickEventsWebhook {
   private CompletableFuture<Void> handleRewardEvent(String body) {
     try {
       var event = java.util.Objects.requireNonNull(
-        mapper.readValue(body, KickEvent.class)
+        mapper.readValue(body, KickRewardPayload.class)
       );
       return accountRepository
         .findByKickId(event.broadcaster().id())
         .thenAccept(it ->
           it.ifPresentOrElse(
-            account -> account.handleEvent(event),
+            account -> account.handleReward(event),
             () ->
               log.info(
                 "Account not found",
@@ -285,8 +208,73 @@ public class KickEventsWebhook {
     }
   }
 
+  private CompletableFuture<Void> handleLivestreamMetadataUpdated(String body) {
+    try {
+      var payload = java.util.Objects.requireNonNull(
+        mapper.readValue(body, KickLivestreamMetadataUpdatedPayload.class)
+      );
+      return accountRepository
+        .findByKickId(payload.broadcaster().userId())
+        .thenAccept(it ->
+          it.ifPresentOrElse(
+            account ->
+              account.handleMetadataUpdate(
+                payload.metadata().title(),
+                payload.metadata().category().name(),
+                payload.metadata().language()
+              ),
+            () ->
+              log.info(
+                "Account not found",
+                Map.of("kickId", payload.broadcaster().userId())
+              )
+          )
+        );
+    } catch (IOException e) {
+      log.error(
+        "Failed to parse livestream.metadata.updated event",
+        Map.of("error", e.getMessage())
+      );
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> handleKicksGifted(String body) {
+    try {
+      var payload = java.util.Objects.requireNonNull(
+        mapper.readValue(body, KickKicksGiftedPayload.class)
+      );
+      return accountRepository
+        .findByKickId(payload.broadcaster().userId())
+        .thenAccept(it ->
+          it.ifPresentOrElse(
+            account ->
+              account.handleKicksGifted(
+                payload.sender().username(),
+                payload.gift().name(),
+                payload.gift().type(),
+                payload.gift().tier(),
+                payload.gift().amount(),
+                payload.createdAt()
+              ),
+            () ->
+              log.info(
+                "Account not found",
+                Map.of("kickId", payload.broadcaster().userId())
+              )
+          )
+        );
+    } catch (IOException e) {
+      log.error(
+        "Failed to parse kicks.gifted event",
+        Map.of("error", e.getMessage())
+      );
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
   @Serdeable
-  public static record KickEvent(
+  public static record KickRewardPayload(
     @JsonProperty("user_input") String input,
     String status,
     Reward reward,
@@ -317,6 +305,7 @@ public class KickEventsWebhook {
     @JsonProperty("started_at") Instant startedAt,
     @JsonProperty("ended_at") Instant endedAt
   ) {
+
     @Serdeable
     public static record KickStreamBroadcaster(
       @JsonProperty("user_id") String id,
@@ -341,4 +330,74 @@ public class KickEventsWebhook {
     @JsonProperty("created_at") Instant createdAt,
     @JsonProperty("expires_at") Instant expiresAt
   ) {}
+
+  @Serdeable
+  public static record KickLivestreamMetadataUpdatedPayload(
+    KickMetadataBroadcaster broadcaster,
+    KickMetadata metadata
+  ) {
+
+    @Serdeable
+    public static record KickMetadataBroadcaster(
+      @JsonProperty("user_id") String userId,
+      String username,
+      @JsonProperty("is_verified") boolean isVerified,
+      @JsonProperty("profile_picture") String profilePicture,
+      @JsonProperty("channel_slug") String channelSlug,
+      @JsonProperty("is_anonymous") boolean isAnonymous
+    ) {}
+
+    @Serdeable
+    public static record KickMetadata(
+      String title,
+      String language,
+      @JsonProperty("has_mature_content") boolean hasMatureContent,
+      KickCategory category
+    ) {
+
+      @Serdeable
+      public static record KickCategory(
+        int id,
+        String name,
+        String thumbnail
+      ) {}
+    }
+  }
+
+  @Serdeable
+  public static record KickKicksGiftedPayload(
+    KickGiftedBroadcaster broadcaster,
+    KickGiftedUser sender,
+    KickGift gift,
+    @JsonProperty("created_at") Instant createdAt
+  ) {
+
+    @Serdeable
+    public static record KickGiftedBroadcaster(
+      @JsonProperty("user_id") String userId,
+      String username,
+      @JsonProperty("is_verified") boolean isVerified,
+      @JsonProperty("profile_picture") String profilePicture,
+      @JsonProperty("channel_slug") String channelSlug
+    ) {}
+
+    @Serdeable
+    public static record KickGiftedUser(
+      @JsonProperty("user_id") String userId,
+      String username,
+      @JsonProperty("is_verified") boolean isVerified,
+      @JsonProperty("profile_picture") String profilePicture,
+      @JsonProperty("channel_slug") String channelSlug
+    ) {}
+
+    @Serdeable
+    public static record KickGift(
+      int amount,
+      String name,
+      String type,
+      String tier,
+      String message,
+      @JsonProperty("pinned_time_seconds") Integer pinnedTimeSeconds
+    ) {}
+  }
 }
