@@ -50,7 +50,9 @@ public class KickEventsWebhook {
     return switch (type) {
       case "channel.followed" -> handleChannelFollowed(body);
       case "livestream.status.updated" -> handleLivestreamStatusUpdated(body);
-      case "livestream.metadata.updated" -> handleLivestreamMetadataUpdated(body);
+      case "livestream.metadata.updated" -> handleLivestreamMetadataUpdated(
+        body
+      );
       case "channel.subscription.new" -> handleChannelSubscribe(body);
       case "channel.subscription.renewal" -> handleChannelSubscribe(body);
       case "channel.subscription.gifts" -> handleChannelSubscriptionGift(body);
@@ -305,7 +307,6 @@ public class KickEventsWebhook {
     @JsonProperty("started_at") Instant startedAt,
     @JsonProperty("ended_at") Instant endedAt
   ) {
-
     @Serdeable
     public static record KickStreamBroadcaster(
       @JsonProperty("user_id") String id,
@@ -336,7 +337,6 @@ public class KickEventsWebhook {
     KickMetadataBroadcaster broadcaster,
     KickMetadata metadata
   ) {
-
     @Serdeable
     public static record KickMetadataBroadcaster(
       @JsonProperty("user_id") String userId,
@@ -354,7 +354,6 @@ public class KickEventsWebhook {
       @JsonProperty("has_mature_content") boolean hasMatureContent,
       KickCategory category
     ) {
-
       @Serdeable
       public static record KickCategory(
         int id,
@@ -371,7 +370,6 @@ public class KickEventsWebhook {
     KickGift gift,
     @JsonProperty("created_at") Instant createdAt
   ) {
-
     @Serdeable
     public static record KickGiftedBroadcaster(
       @JsonProperty("user_id") String userId,
