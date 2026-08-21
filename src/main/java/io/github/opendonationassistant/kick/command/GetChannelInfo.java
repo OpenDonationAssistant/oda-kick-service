@@ -45,7 +45,7 @@ public class GetChannelInfo {
   )
   @Post("/kick/commands/get-channel-info")
   @Secured(SecurityRule.IS_AUTHENTICATED)
-  public CompletableFuture<HttpResponse<ChannelInfo>> getChatroomId(
+  public CompletableFuture<HttpResponse<ChannelInfo>> getChannelInfo(
     @Body GetChannelInfoCommand command
   ) {
     return accountRepository
