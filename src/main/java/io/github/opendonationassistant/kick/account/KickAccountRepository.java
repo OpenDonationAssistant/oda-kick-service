@@ -44,6 +44,14 @@ public class KickAccountRepository {
     );
   }
 
+  public CompletableFuture<Optional<KickAccount>> findByRefreshTokenId(
+    String refreshTokenId
+  ) {
+    return CompletableFuture.completedFuture(
+      repository.findOneByRefreshTokenId(refreshTokenId).map(it -> convert(it))
+    );
+  }
+
   public CompletableFuture<Optional<KickAccount>> findByRecipientId(
     String recipientId
   ) {

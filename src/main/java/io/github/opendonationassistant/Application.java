@@ -13,7 +13,7 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.List;
 
-@OpenAPIDefinition(info = @Info(title = "oda-kick-service"))
+@OpenAPIDefinition(info = @Info(title = "oda-kick-service", version = "0.1.0"))
 @Factory
 public class Application {
 

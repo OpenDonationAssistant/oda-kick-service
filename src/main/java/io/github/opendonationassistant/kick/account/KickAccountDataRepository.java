@@ -10,6 +10,7 @@ public interface KickAccountDataRepository
   extends CrudRepository<KickAccountData, String> {
   Optional<KickAccountData> findOneByRecipientId(String recipientId);
   Optional<KickAccountData> findOneByKickId(String kickId);
+  Optional<KickAccountData> findOneByRefreshTokenId(String refreshTokenId);
   void deleteByRecipientIdAndRefreshTokenId(
     String recipientId,
     String refreshTokenId

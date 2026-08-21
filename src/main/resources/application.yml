@@ -23,6 +23,10 @@ micronaut:
     event-listener:
       type: fixed
       nThreads: 1
+  http:
+    services:
+      kick-web:
+        url: https://kick.com
 datasources:
   default:
     driver-class-name: org.postgresql.Driver
