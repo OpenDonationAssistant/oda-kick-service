@@ -6,13 +6,16 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Post;
+import io.micronaut.security.annotation.Secured;
+import io.micronaut.security.rules.SecurityRule;
 import io.micronaut.serde.annotation.Serdeable;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.inject.Inject;
 import java.util.concurrent.CompletableFuture;
 import org.zalando.problem.Problem;
 
-@Controller("/kick")
+@Controller
 public class GetChannelInfo {
 
   private final KickAccountRepository accountRepository;
@@ -27,6 +30,10 @@ public class GetChannelInfo {
     this.kickWebClient = kickWebClient;
   }
 
+  @Operation(
+    summary = "Get kick channel info",
+    description = "Get kick channel info"
+  )
   @ApiResponse(
     responseCode = "200",
     description = "OK",
@@ -36,7 +43,8 @@ public class GetChannelInfo {
       )
     )
   )
-  @Post("/commands/get-channel-info")
+  @Post("/kick/commands/get-channel-info")
+  @Secured(SecurityRule.IS_AUTHENTICATED)
   public CompletableFuture<HttpResponse<ChannelInfo>> getChatroomId(
     @Body GetChannelInfoCommand command
   ) {
