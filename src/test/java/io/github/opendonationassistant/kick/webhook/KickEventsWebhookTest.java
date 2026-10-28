@@ -67,8 +67,6 @@ public class KickEventsWebhookTest {
 
   @Test
   public void unknownTypeIsInvalidAndNeverParsedAsReward() {
-    // A valid reward payload for an unsubscribed type: parsing it as a reward
-    // would query the account repository, which must not happen anymore.
     webhook.webhook("chat.message.sent", "1", REWARD_BODY).join();
 
     assertEquals(1.0, count(KickMetrics.UNKNOWN, KickMetrics.INVALID));
@@ -105,8 +103,6 @@ public class KickEventsWebhookTest {
 
   @Test
   public void rewardWithoutBroadcasterIsInvalidAndNeverLookedUp() {
-    // Guards the null record component NPE: a missing broadcaster used to
-    // escape as a 500, which made Kick retry the same delivery forever.
     webhook
       .webhook(
         "channel.reward.redemption.updated",

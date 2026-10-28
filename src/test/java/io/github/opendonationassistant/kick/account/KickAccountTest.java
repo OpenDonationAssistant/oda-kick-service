@@ -179,7 +179,6 @@ public class KickAccountTest {
 
   @Test
   public void publishesMediaCommandOnlyForKnownRewards() throws IOException {
-    // reward is not configured in ODA, so nothing is published at all
     account().handleReward(payload("water", "accepted"));
 
     verify(commandsRabbit, times(0)).sendCommand(any());
