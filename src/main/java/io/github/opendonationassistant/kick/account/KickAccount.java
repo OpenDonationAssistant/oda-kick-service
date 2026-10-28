@@ -2,28 +2,36 @@ package io.github.opendonationassistant.kick.account;
 
 import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.commons.logging.ODALogger;
+import io.github.opendonationassistant.events.HasRecipientId;
 import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
+import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
+import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageResponse;
 import io.github.opendonationassistant.kick.events.KickChannelFollowEvent;
 import io.github.opendonationassistant.kick.events.KickChannelSubscribeEvent;
 import io.github.opendonationassistant.kick.events.KickChannelSubscriptionGiftEvent;
 import io.github.opendonationassistant.kick.events.KickKicksGiftedEvent;
+import io.github.opendonationassistant.kick.events.KickRewardEvent;
 import io.github.opendonationassistant.kick.events.KickStreamMetadataUpdatedEvent;
 import io.github.opendonationassistant.kick.events.KickStreamStartedEvent;
 import io.github.opendonationassistant.kick.reward.repository.Reward;
 import io.github.opendonationassistant.kick.reward.repository.RewardData;
 import io.github.opendonationassistant.kick.reward.repository.RewardDataRepository;
-import io.github.opendonationassistant.events.HasRecipientId;
 import io.github.opendonationassistant.kick.webhook.KickEventsWebhook.KickRewardPayload;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.serde.annotation.Serdeable;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 public class KickAccount {
+
+  private static final String CHAT_MESSAGE_TYPE = "user";
 
   private final ODALogger log = new ODALogger(this);
   private final KickAccountData data;
@@ -66,15 +74,44 @@ public class KickAccount {
             new AddMediaCommand(
               event.input(),
               event.redeemer().username(),
-              data().recipientId(),
+              data.recipientId(),
               "kick"
             )
           );
+          var rewardEvent = new KickRewardEvent(
+            redemptionEventId(event),
+            data.recipientId(),
+            event.redeemer().username(),
+            event.reward().title(),
+            event.reward().id(),
+            event.input(),
+            event.status(),
+            event.reward().cost(),
+            event.redeemer().id(),
+            Instant.now()
+          );
+          sendEvent(rewardEvent, "reward");
         },
         () -> {
           log.info("reward not found", Map.of("rewardId", event.reward().id()));
         }
       );
+  }
+
+  private String redemptionEventId(KickRewardPayload event) {
+    var identity =
+      data.recipientId() +
+      ":" +
+      event.reward().id() +
+      ":" +
+      event.redeemer().id() +
+      ":" +
+      event.input() +
+      ":" +
+      event.status();
+    return UUID.nameUUIDFromBytes(
+      identity.getBytes(StandardCharsets.UTF_8)
+    ).toString();
   }
 
   public void handleFollow(String username) {
@@ -87,7 +124,11 @@ public class KickAccount {
     sendEvent(event, "follow");
   }
 
-  public void handleSubscription(String username, Integer duration, Instant createdAt) {
+  public void handleSubscription(
+    String username,
+    Integer duration,
+    Instant createdAt
+  ) {
     var event = new KickChannelSubscribeEvent(
       Generators.timeBasedEpochGenerator().generate().toString(),
       data.recipientId(),
@@ -98,7 +139,11 @@ public class KickAccount {
     sendEvent(event, "subscription");
   }
 
-  public void handleStreamChange(String title, String thumbnailUrl, Instant startedAt) {
+  public void handleStreamChange(
+    String title,
+    String thumbnailUrl,
+    Instant startedAt
+  ) {
     var event = new KickStreamStartedEvent(
       Generators.timeBasedEpochGenerator().generate().toString(),
       data.recipientId(),
@@ -109,7 +154,11 @@ public class KickAccount {
     sendEvent(event, "stream");
   }
 
-  public void handleSubscriptionGift(String username, Integer amount, Instant createdAt) {
+  public void handleSubscriptionGift(
+    String username,
+    Integer amount,
+    Instant createdAt
+  ) {
     var event = new KickChannelSubscriptionGiftEvent(
       Generators.timeBasedEpochGenerator().generate().toString(),
       data.recipientId(),
@@ -120,7 +169,11 @@ public class KickAccount {
     sendEvent(event, "subscription gift");
   }
 
-  public void handleMetadataUpdate(String title, String category, String language) {
+  public void handleMetadataUpdate(
+    String title,
+    String category,
+    String language
+  ) {
     var event = new KickStreamMetadataUpdatedEvent(
       Generators.timeBasedEpochGenerator().generate().toString(),
       data.recipientId(),
@@ -180,11 +233,29 @@ public class KickAccount {
         data.refreshTokenId(),
         new KickDataClient.RewardRequest(title, "", cost, true, null)
       )
-      .thenAccept(it ->
+      .thenAccept(it -> {
+        var created = it.data();
+        if (created == null) {
+          log.error(
+            "Kick createReward response had no data",
+            Map.of("recipientId", data.recipientId())
+          );
+          return;
+        }
         rewardRepository.save(
-          new RewardData(it.data().id(), data.id(), widgetId, type)
-        )
-      );
+          new RewardData(created.id(), data.id(), widgetId, type)
+        );
+      });
+  }
+
+  public CompletableFuture<DataWrapper<SendChatMessageResponse>> sendMessage(
+    String content
+  ) {
+    return kick.sendChatMessage(
+      data.recipientId(),
+      data.refreshTokenId(),
+      new SendChatMessageRequest(content, CHAT_MESSAGE_TYPE, data.kickId())
+    );
   }
 
   @Serdeable

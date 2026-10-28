@@ -4,6 +4,8 @@ import io.github.opendonationassistant.integration.KickDataClient.Created;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.RewardRequest;
+import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
+import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageResponse;
 import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
 import io.github.opendonationassistant.rabbit.TokenRPC;
 import jakarta.inject.Inject;
@@ -51,6 +53,14 @@ public class KickClient {
 
   public CompletableFuture<Void> deleteReward(String token, String id) {
     return client.deleteReward(token, id);
+  }
+
+  public CompletableFuture<DataWrapper<SendChatMessageResponse>> sendChatMessage(
+    String recipientId,
+    String refreshTokenId,
+    SendChatMessageRequest request
+  ) {
+    return client.sendChatMessage(token(recipientId, refreshTokenId), request);
   }
 
   private String token(String recipientId, String refreshTokenId) {

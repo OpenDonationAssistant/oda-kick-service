@@ -1,6 +1,7 @@
 package io.github.opendonationassistant.kick.listener.handlers;
 
 import com.fasterxml.uuid.Generators;
+import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.integration.KickClient;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
@@ -8,14 +9,14 @@ import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
 import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
-import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
 import io.github.opendonationassistant.kick.subscription.SubscriptionsData.Subscription;
+import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import jakarta.inject.Singleton;
-
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -27,6 +28,7 @@ public class SubscribeEventsHandler
 
   private final KickClient kick;
   private final SubscriptionsDataRepository dataRepository;
+  private final ODALogger log = new ODALogger(this);
 
   public SubscribeEventsHandler(
     ObjectMapper mapper,
@@ -61,13 +63,21 @@ public class SubscribeEventsHandler
     SubscribeKickEventsCommand message,
     DataWrapper<List<CreatedSubscription>> response
   ) {
-    final List<Subscription> created = response
-      .data()
-      .stream()
-      .map(it ->
-        new SubscriptionsData.Subscription(it.id(), it.name(), it.version())
-      )
-      .toList();
+    final var data = response.data();
+    if (data == null) {
+      log.warn(
+        "Kick returned no subscription data",
+        Map.of("recipientId", message.recipientId())
+      );
+    }
+    final List<Subscription> created = data == null
+      ? List.of()
+      : data
+        .stream()
+        .map(it ->
+          new SubscriptionsData.Subscription(it.id(), it.name(), it.version())
+        )
+        .toList();
     final Optional<SubscriptionsData> existed = dataRepository
       .findByRecipientIdAndTokenId(
         message.recipientId(),

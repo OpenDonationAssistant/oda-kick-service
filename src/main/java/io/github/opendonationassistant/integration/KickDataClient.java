@@ -40,6 +40,12 @@ public interface KickDataClient {
     String id
   );
 
+  @Post("/public/v1/chat")
+  CompletableFuture<DataWrapper<SendChatMessageResponse>> sendChatMessage(
+    @Header("Authorization") String token,
+    @Body SendChatMessageRequest request
+  );
+
   @Serdeable
   public static record RewardRequest(
     String title,
@@ -66,8 +72,21 @@ public interface KickDataClient {
   public static record EventSubscription(String name, Integer version) {}
 
   @Serdeable
-  public static record DataWrapper<T>(T data) {}
+  public static record DataWrapper<T>(@Nullable T data) {}
 
   @Serdeable
   public static record Created(String id) {}
+
+  @Serdeable
+  public static record SendChatMessageRequest(
+    String content,
+    String type,
+    @JsonProperty("broadcaster_user_id") String broadcasterUserId
+  ) {}
+
+  @Serdeable
+  public static record SendChatMessageResponse(
+    @JsonProperty("is_sent") @Nullable Boolean isSent,
+    @JsonProperty("message_id") @Nullable String messageId
+  ) {}
 }
