@@ -3,7 +3,7 @@ package io.github.opendonationassistant.kick.listener.handlers;
 import com.fasterxml.uuid.Generators;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
-import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
@@ -26,26 +26,25 @@ public class SubscribeEventsHandler
     SubscribeEventsHandler.SubscribeKickEventsCommand
   > {
 
-  private final KickClient kick;
+  private final KickClientFactory kickFactory;
   private final SubscriptionsDataRepository dataRepository;
   private final ODALogger log = new ODALogger(this);
 
   public SubscribeEventsHandler(
     ObjectMapper mapper,
-    KickClient kick,
+    KickClientFactory kickFactory,
     SubscriptionsDataRepository dataRepository
   ) {
     super(mapper);
-    this.kick = kick;
+    this.kickFactory = kickFactory;
     this.dataRepository = dataRepository;
   }
 
   @Override
   public void handle(SubscribeKickEventsCommand message) throws IOException {
-    kick
+    kickFactory
+      .create(message.recipientId(), message.refreshTokenId())
       .subscribe(
-        message.recipientId(),
-        message.refreshTokenId(),
         new SubscriptionRequest(
           message
             .events()

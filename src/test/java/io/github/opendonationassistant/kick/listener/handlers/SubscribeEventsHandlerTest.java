@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.when;
 
 import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.EventSubscription;
@@ -18,12 +19,14 @@ import io.micronaut.serde.ObjectMapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class SubscribeEventsHandlerTest {
 
   KickClient kick = Mockito.mock(KickClient.class);
+  KickClientFactory kickFactory = Mockito.mock(KickClientFactory.class);
   ObjectMapper mapper = ObjectMapper.getDefault();
   SubscriptionsDataRepository repository = Mockito.mock(
     SubscriptionsDataRepository.class
@@ -31,15 +34,18 @@ public class SubscribeEventsHandlerTest {
 
   SubscribeEventsHandler handler = new SubscribeEventsHandler(
     mapper,
-    kick,
+    kickFactory,
     repository
   );
 
+  @BeforeEach
+  public void stubKickClient() {
+    when(kickFactory.create("testuser", "tokenId")).thenReturn(kick);
+  }
+
   @Test
   public void testCreatingNewSubscriptions() throws IOException {
-    when(
-      kick.subscribe(anyString(), anyString(), any(SubscriptionRequest.class))
-    ).thenReturn(
+    when(kick.subscribe(any(SubscriptionRequest.class))).thenReturn(
       CompletableFuture.completedFuture(
         new DataWrapper<>(
           List.of(
@@ -56,9 +62,8 @@ public class SubscribeEventsHandlerTest {
         List.of("name", "name2")
       )
     );
+    Mockito.verify(kickFactory).create("testuser", "tokenId");
     Mockito.verify(kick).subscribe(
-      "testuser",
-      "tokenId",
       new SubscriptionRequest(
         List.of(
           new EventSubscription("name", 1),
@@ -85,9 +90,7 @@ public class SubscribeEventsHandlerTest {
 
   @Test
   public void testAddingSubscriptionsToExisting() throws IOException {
-    when(
-      kick.subscribe(anyString(), anyString(), any(SubscriptionRequest.class))
-    ).thenReturn(
+    when(kick.subscribe(any(SubscriptionRequest.class))).thenReturn(
       CompletableFuture.completedFuture(
         new DataWrapper<>(
           List.of(

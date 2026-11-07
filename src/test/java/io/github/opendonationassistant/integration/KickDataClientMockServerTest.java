@@ -9,11 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
+import io.github.opendonationassistant.integration.KickDataClient.FailedRedemption;
+import io.github.opendonationassistant.integration.KickDataClient.RejectRedemptionsRequest;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.core.type.Argument;
 import io.micronaut.serde.ObjectMapper;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
@@ -26,16 +29,6 @@ import org.mockserver.integration.ClientAndServer;
 import org.mockserver.junit.jupiter.MockServerExtension;
 import org.mockserver.junit.jupiter.MockServerSettings;
 
-/**
- * Exercises the declarative {@link KickDataClient} over real HTTP against
- * MockServer: the point is the actual wire contract (method, path, bearer
- * header and JSON body) that a serde round-trip cannot see.
- *
- * <p>MockServer is started by {@link MockServerExtension} (the Jetty/Netty server
- * lifecycle and the port allocation are the extension's job); the client is
- * taken from a minimal Micronaut context that only scans this package, so no
- * database, RabbitMQ or Flyway beans are involved.
- */
 @ExtendWith(MockServerExtension.class)
 @MockServerSettings(ports = { KickDataClientMockServerTest.MOCK_SERVER_PORT })
 public class KickDataClientMockServerTest {
@@ -43,6 +36,8 @@ public class KickDataClientMockServerTest {
   static final int MOCK_SERVER_PORT = 8080;
 
   private static final String CHAT_PATH = "/public/v1/chat";
+  private static final String REJECT_REDEMPTIONS_PATH =
+    "/public/v1/channels/rewards/redemptions/reject";
   private static final String TOKEN = "Bearer token-1";
 
   private static final ObjectMapper mapper = ObjectMapper.getDefault();
@@ -220,5 +215,77 @@ public class KickDataClientMockServerTest {
     assertEquals(content, body.get("content"));
     assertInstanceOf(String.class, body.get("broadcaster_user_id"));
     assertTrue(recorded[0].getBodyAsString().contains("\\n"));
+  }
+
+  @Test
+  public void rejectsRedemptionsAsJsonIds() throws IOException {
+    mockServer
+      .when(
+        request().withMethod("POST").withPath(REJECT_REDEMPTIONS_PATH)
+      )
+      .respond(
+        response()
+          .withStatusCode(200)
+          .withHeader("Content-Type", "application/json")
+          .withBody("{\"data\":[]}")
+      );
+
+    var result = client
+      .rejectRedemptions(
+        TOKEN,
+        new RejectRedemptionsRequest(List.of("redemption-1"))
+      )
+      .join();
+
+    var recorded = mockServer.retrieveRecordedRequests(
+      request().withMethod("POST").withPath(REJECT_REDEMPTIONS_PATH)
+    );
+    assertEquals(1, recorded.length);
+    assertEquals(TOKEN, recorded[0].getFirstHeader("Authorization"));
+
+    var body = Objects.requireNonNull(
+      mapper.readValue(
+        recorded[0].getBodyAsString(),
+        Argument.mapOf(String.class, Object.class)
+      )
+    );
+    assertEquals(List.of("redemption-1"), body.get("ids"));
+    assertEquals(1, body.size(), recorded[0].getBodyAsString());
+
+    assertTrue(Objects.requireNonNull(result.data()).isEmpty());
+  }
+
+  @Test
+  public void parsesRedemptionsKickFailedToReject() {
+    mockServer
+      .when(
+        request().withMethod("POST").withPath(REJECT_REDEMPTIONS_PATH)
+      )
+      .respond(
+        response()
+          .withStatusCode(200)
+          .withHeader("Content-Type", "application/json")
+          .withBody(
+            """
+            {"data":[{"id":"redemption-1","reason":"NOT_PENDING"}]}
+            """
+          )
+      );
+
+    var failures = Objects.requireNonNull(
+      client
+        .rejectRedemptions(
+          TOKEN,
+          new RejectRedemptionsRequest(List.of("redemption-1"))
+        )
+        .join()
+        .data()
+    );
+
+    assertEquals(1, failures.size());
+    assertEquals(
+      new FailedRedemption("redemption-1", "NOT_PENDING"),
+      failures.get(0)
+    );
   }
 }

@@ -40,6 +40,12 @@ public interface KickDataClient {
     String id
   );
 
+  @Post("/public/v1/channels/rewards/redemptions/reject")
+  CompletableFuture<DataWrapper<List<FailedRedemption>>> rejectRedemptions(
+    @Header("Authorization") String token,
+    @Body RejectRedemptionsRequest request
+  );
+
   @Post("/public/v1/chat")
   CompletableFuture<DataWrapper<SendChatMessageResponse>> sendChatMessage(
     @Header("Authorization") String token,
@@ -76,6 +82,12 @@ public interface KickDataClient {
 
   @Serdeable
   public static record Created(String id) {}
+
+  @Serdeable
+  public static record RejectRedemptionsRequest(List<String> ids) {}
+
+  @Serdeable
+  public static record FailedRedemption(String id, String reason) {}
 
   @Serdeable
   public static record SendChatMessageRequest(

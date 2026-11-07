@@ -1,6 +1,7 @@
 package io.github.opendonationassistant.kick.account;
 
-import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
+import io.github.opendonationassistant.integration.media.MediaRPC;
 import io.github.opendonationassistant.kick.reward.repository.RewardDataRepository;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import jakarta.inject.Inject;
@@ -14,22 +15,22 @@ public class KickAccountRepository {
 
   private final KickAccountDataRepository repository;
   private final RewardDataRepository rewardRepository;
-  private final KickClient kick;
-  private final RabbitClient commandsRabbit;
+  private final KickClientFactory kickFactory;
+  private final MediaRPC media;
   private final RabbitClient eventsRabbit;
 
   @Inject
   public KickAccountRepository(
     KickAccountDataRepository repository,
-    KickClient kick,
+    KickClientFactory kickFactory,
     RewardDataRepository rewardRepository,
-    @Named("commands") RabbitClient commandsRabbit,
+    MediaRPC media,
     @Named("events") RabbitClient eventsRabbit
   ) {
     this.rewardRepository = rewardRepository;
-    this.kick = kick;
+    this.kickFactory = kickFactory;
     this.repository = repository;
-    this.commandsRabbit = commandsRabbit;
+    this.media = media;
     this.eventsRabbit = eventsRabbit;
   }
 
@@ -74,7 +75,13 @@ public class KickAccountRepository {
   }
 
   private KickAccount convert(KickAccountData data) {
-    return new KickAccount(rewardRepository, kick, commandsRabbit, eventsRabbit, data);
+    return new KickAccount(
+      rewardRepository,
+      kickFactory,
+      media,
+      eventsRabbit,
+      data
+    );
   }
 
   public CompletableFuture<Void> delete(

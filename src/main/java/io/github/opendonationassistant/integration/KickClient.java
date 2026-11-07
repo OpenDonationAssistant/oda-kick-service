@@ -3,74 +3,57 @@ package io.github.opendonationassistant.integration;
 import io.github.opendonationassistant.integration.KickDataClient.Created;
 import io.github.opendonationassistant.integration.KickDataClient.CreatedSubscription;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
+import io.github.opendonationassistant.integration.KickDataClient.FailedRedemption;
+import io.github.opendonationassistant.integration.KickDataClient.RejectRedemptionsRequest;
 import io.github.opendonationassistant.integration.KickDataClient.RewardRequest;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageResponse;
 import io.github.opendonationassistant.integration.KickDataClient.SubscriptionRequest;
-import io.github.opendonationassistant.rabbit.TokenRPC;
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.zalando.problem.Problem;
 
-@Singleton
 public class KickClient {
 
   private final KickDataClient client;
-  private final TokenRPC tokenRPC;
+  private final String token;
 
-  @Inject
-  public KickClient(KickDataClient client, TokenRPC tokenRPC) {
+  public KickClient(KickDataClient client, String token) {
     this.client = client;
-    this.tokenRPC = tokenRPC;
+    this.token = token;
   }
 
   public CompletableFuture<DataWrapper<List<CreatedSubscription>>> subscribe(
-    String recipientId,
-    String refreshTokenId,
     SubscriptionRequest request
   ) {
-    return client.subscribe(token(recipientId, refreshTokenId), request);
+    return client.subscribe(token, request);
   }
 
-  public CompletableFuture<Void> unsubscribe(
-    String recipientId,
-    String refreshTokenId,
-    List<String> ids
-  ) {
-    return client.unsubscribe(token(recipientId, refreshTokenId), ids);
+  public CompletableFuture<Void> unsubscribe(List<String> ids) {
+    return client.unsubscribe(token, ids);
   }
 
   public CompletableFuture<DataWrapper<Created>> createReward(
-    String recipientId,
-    String refreshTokenId,
     RewardRequest request
   ) {
-    return client.createReward(token(recipientId, refreshTokenId), request);
+    return client.createReward(token, request);
   }
 
-  public CompletableFuture<Void> deleteReward(String token, String id) {
+  public CompletableFuture<Void> deleteReward(String id) {
     return client.deleteReward(token, id);
   }
 
-  public CompletableFuture<DataWrapper<SendChatMessageResponse>> sendChatMessage(
-    String recipientId,
-    String refreshTokenId,
-    SendChatMessageRequest request
+  public CompletableFuture<DataWrapper<List<FailedRedemption>>> rejectRedemption(
+    String redemptionId
   ) {
-    return client.sendChatMessage(token(recipientId, refreshTokenId), request);
+    return client.rejectRedemptions(
+      token,
+      new RejectRedemptionsRequest(List.of(redemptionId))
+    );
   }
 
-  private String token(String recipientId, String refreshTokenId) {
-    return Optional.ofNullable(
-      tokenRPC.token(new TokenRPC.TokenRequest(recipientId, refreshTokenId))
-    )
-      .map(TokenRPC.TokenResponse::token)
-      .map(t -> "Bearer " + t)
-      .orElseThrow(() ->
-        Problem.builder().withTitle("Can't obtain access token").build()
-      );
+  public CompletableFuture<DataWrapper<SendChatMessageResponse>> sendChatMessage(
+    SendChatMessageRequest request
+  ) {
+    return client.sendChatMessage(token, request);
   }
 }

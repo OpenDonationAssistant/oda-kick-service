@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -14,9 +13,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageResponse;
+import io.github.opendonationassistant.integration.media.MediaRPC;
 import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountData;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
@@ -27,6 +28,7 @@ import io.micronaut.serde.ObjectMapper;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -40,6 +42,7 @@ public class SendKickMessageHandlerTest {
     KickAccountRepository.class
   );
   private final KickClient kick = mock(KickClient.class);
+  private final KickClientFactory kickFactory = mock(KickClientFactory.class);
   private final ObjectMapper mapper = ObjectMapper.getDefault();
   private final SendKickMessageHandler handler = new SendKickMessageHandler(
     mapper,
@@ -51,8 +54,8 @@ public class SendKickMessageHandlerTest {
   // exactly the behaviour these tests are about.
   private final KickAccount account = new KickAccount(
     mock(RewardDataRepository.class),
-    kick,
-    mock(RabbitClient.class),
+    kickFactory,
+    mock(MediaRPC.class),
     mock(RabbitClient.class),
     new KickAccountData(
       "id-1",
@@ -62,6 +65,11 @@ public class SendKickMessageHandlerTest {
       REFRESH_TOKEN_ID
     )
   );
+
+  @BeforeEach
+  public void stubKickClient() {
+    when(kickFactory.create(RECIPIENT_ID, REFRESH_TOKEN_ID)).thenReturn(kick);
+  }
 
   private static SendKickMessageCommand command() {
     return new SendKickMessageCommand(
@@ -82,7 +90,7 @@ public class SendKickMessageHandlerTest {
   }
 
   private void givenResponse(DataWrapper<SendChatMessageResponse> response) {
-    when(kick.sendChatMessage(anyString(), anyString(), any())).thenReturn(
+    when(kick.sendChatMessage(any())).thenReturn(
       CompletableFuture.completedFuture(response)
     );
   }
@@ -100,14 +108,11 @@ public class SendKickMessageHandlerTest {
       RECIPIENT_ID,
       REFRESH_TOKEN_ID
     );
+    verify(kickFactory).create(RECIPIENT_ID, REFRESH_TOKEN_ID);
     final var request = ArgumentCaptor.forClass(
       SendChatMessageRequest.class
     );
-    verify(kick).sendChatMessage(
-      eq(RECIPIENT_ID),
-      eq(REFRESH_TOKEN_ID),
-      request.capture()
-    );
+    verify(kick).sendChatMessage(request.capture());
     assertEquals("hello", request.getValue().content());
     assertEquals("user", request.getValue().type());
     // The account's own Kick id, passed through verbatim from data().kickId().
@@ -146,7 +151,7 @@ public class SendKickMessageHandlerTest {
   @Test
   public void rethrowsClientFailureSoTheMessageStaysUnacked() {
     givenAccount();
-    when(kick.sendChatMessage(anyString(), anyString(), any())).thenReturn(
+    when(kick.sendChatMessage(any())).thenReturn(
       CompletableFuture.failedFuture(new RuntimeException("boom"))
     );
 
@@ -166,11 +171,7 @@ public class SendKickMessageHandlerTest {
 
     assertDoesNotThrow(() -> handler.handle(command()));
 
-    verify(kick, times(1)).sendChatMessage(
-      eq(RECIPIENT_ID),
-      eq(REFRESH_TOKEN_ID),
-      any()
-    );
+    verify(kick, times(1)).sendChatMessage(any());
   }
 
   @Test
@@ -180,11 +181,7 @@ public class SendKickMessageHandlerTest {
 
     assertDoesNotThrow(() -> handler.handle(command()));
 
-    verify(kick, times(1)).sendChatMessage(
-      eq(RECIPIENT_ID),
-      eq(REFRESH_TOKEN_ID),
-      any()
-    );
+    verify(kick, times(1)).sendChatMessage(any());
   }
 
   @Test
@@ -194,10 +191,6 @@ public class SendKickMessageHandlerTest {
 
     assertDoesNotThrow(() -> handler.handle(command()));
 
-    verify(kick, times(1)).sendChatMessage(
-      eq(RECIPIENT_ID),
-      eq(REFRESH_TOKEN_ID),
-      any()
-    );
+    verify(kick, times(1)).sendChatMessage(any());
   }
 }

@@ -4,7 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.kick.account.KickAccount;
 import io.github.opendonationassistant.kick.account.KickAccountRepository;
+import io.github.opendonationassistant.kick.events.KickRewardEvent;
 import io.github.opendonationassistant.kick.metrics.KickMetrics;
+import io.github.opendonationassistant.kick.reward.repository.KickReward;
+import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Header;
@@ -15,13 +18,17 @@ import io.micronaut.serde.ObjectMapper;
 import io.micronaut.serde.annotation.Serdeable;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 @Controller
 public class KickEventsWebhook {
@@ -30,16 +37,19 @@ public class KickEventsWebhook {
   private final KickAccountRepository accountRepository;
   private final ObjectMapper mapper;
   private final KickMetrics metrics;
+  private final RabbitClient eventsRabbit;
 
   @Inject
   public KickEventsWebhook(
     KickAccountRepository accountRepository,
     ObjectMapper mapper,
-    KickMetrics metrics
+    KickMetrics metrics,
+    @Named("events") RabbitClient eventsRabbit
   ) {
     this.accountRepository = accountRepository;
     this.mapper = mapper;
     this.metrics = metrics;
+    this.eventsRabbit = eventsRabbit;
   }
 
   @Post("/kick/events")
@@ -213,8 +223,86 @@ public class KickEventsWebhook {
       body,
       KickRewardPayload.class,
       event -> event.broadcaster().id(),
-      (account, event) -> account.handleReward(event)
+      this::handleReward
     );
+  }
+
+  private void handleReward(KickAccount account, KickRewardPayload event) {
+    account
+      .reward(event.reward().id())
+      .ifPresentOrElse(
+        reward -> {
+          if (isPending(event)) {
+            reward.addMedia(
+              event.redemptionId(),
+              event.input(),
+              event.redeemer().username(),
+              event.reward().title()
+            );
+          }
+          // TODO send reward event anyway even if account not found
+          sendEvent(rewardEvent(reward, event));
+        },
+        () ->
+          log.info("reward not found", Map.of("rewardId", event.reward().id()))
+      );
+  }
+
+  private KickRewardEvent rewardEvent(
+    KickReward reward,
+    KickRewardPayload event
+  ) {
+    return new KickRewardEvent(
+      redemptionEventId(reward.recipientId(), event),
+      reward.recipientId(),
+      event.redeemer().username(),
+      event.reward().title(),
+      event.reward().id(),
+      event.input(),
+      event.status(),
+      event.reward().cost(),
+      event.redeemer().id(),
+      Instant.now()
+    );
+  }
+
+  private static String redemptionEventId(
+    String recipientId,
+    KickRewardPayload event
+  ) {
+    var identity =
+      recipientId +
+      ":" +
+      event.reward().id() +
+      ":" +
+      event.redeemer().id() +
+      ":" +
+      event.input() +
+      ":" +
+      event.status();
+    return UUID.nameUUIDFromBytes(
+      identity.getBytes(StandardCharsets.UTF_8)
+    ).toString();
+  }
+
+  private static boolean isPending(KickRewardPayload event) {
+    return "pending".equalsIgnoreCase(event.status());
+  }
+
+  private void sendEvent(KickRewardEvent event) {
+    try {
+      eventsRabbit.sendEvent(event);
+    } catch (Exception e) {
+      log.error(
+        "Failed to send reward event",
+        Map.of(
+          "error",
+          Objects.toString(e.getMessage(), "Unknown error"),
+          "recipientId",
+          event.recipientId()
+        )
+      );
+    }
   }
 
   private CompletableFuture<Void> handleLivestreamMetadataUpdated(
@@ -255,6 +343,7 @@ public class KickEventsWebhook {
 
   @Serdeable
   public static record KickRewardPayload(
+    @JsonProperty("id") @Nullable String redemptionId,
     @JsonProperty("user_input") String input,
     String status,
     Reward reward,

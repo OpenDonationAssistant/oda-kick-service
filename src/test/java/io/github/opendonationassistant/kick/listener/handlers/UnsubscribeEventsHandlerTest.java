@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.opendonationassistant.integration.KickClient;
-import io.github.opendonationassistant.integration.KickDataClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.kick.listener.handlers.UnsubscribeEventsHandler.UnsubscribeKickEventsCommand;
 import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
 import io.github.opendonationassistant.kick.subscription.SubscriptionsDataRepository;
@@ -15,24 +15,31 @@ import io.micronaut.serde.ObjectMapper;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class UnsubscribeEventsHandlerTest {
 
   ObjectMapper mapper = ObjectMapper.getDefault();
   KickClient kick = mock(KickClient.class);
+  KickClientFactory kickFactory = mock(KickClientFactory.class);
   SubscriptionsDataRepository repository = mock(
     SubscriptionsDataRepository.class
   );
   UnsubscribeEventsHandler handler = new UnsubscribeEventsHandler(
     mapper,
-    kick,
+    kickFactory,
     repository
   );
 
+  @BeforeEach
+  public void stubKickClient() {
+    when(kickFactory.create("testuser", "tokenId")).thenReturn(kick);
+  }
+
   @Test
   public void testDeletingAllEvents() throws IOException {
-    when(kick.unsubscribe(anyString(), anyString(), anyList())).thenReturn(
+    when(kick.unsubscribe(anyList())).thenReturn(
       CompletableFuture.completedFuture(null)
     );
     when(
@@ -53,17 +60,13 @@ public class UnsubscribeEventsHandlerTest {
     handler.handle(
       new UnsubscribeKickEventsCommand("testuser", "tokenId", null)
     );
-    verify(kick).unsubscribe(
-      "testuser",
-      "tokenId",
-      List.of("oldid1", "oldid2")
-    );
+    verify(kick).unsubscribe(List.of("oldid1", "oldid2"));
     verify(repository).deleteById("id");
   }
 
   @Test
   public void testDeletingSomeEvents() throws IOException {
-    when(kick.unsubscribe(anyString(), anyString(), anyList())).thenReturn(
+    when(kick.unsubscribe(anyList())).thenReturn(
       CompletableFuture.completedFuture(null)
     );
     when(
@@ -88,7 +91,7 @@ public class UnsubscribeEventsHandlerTest {
         List.of("oldname1")
       )
     );
-    verify(kick).unsubscribe("testuser", "tokenId", List.of("oldid1"));
+    verify(kick).unsubscribe(List.of("oldid1"));
     verify(repository).update(
       argThat(it -> {
         return (
