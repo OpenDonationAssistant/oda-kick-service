@@ -23,13 +23,16 @@ import io.github.opendonationassistant.kick.metrics.KickMetrics;
 import io.github.opendonationassistant.kick.reward.repository.KickReward;
 import io.github.opendonationassistant.rabbit.RabbitClient;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.micronaut.serde.ObjectMapper;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -53,6 +56,11 @@ public class KickEventsWebhookTest {
   private static final String REWARD_BODY_OTHER_INPUT = rewardBody(
     "accepted",
     "beer"
+  );
+  private static final String REWARD_BODY_OTHER_REDEMPTION = rewardBody(
+    "accepted",
+    "song",
+    "redemption-2"
   );
 
   private static final String REWARD_BODY_PENDING_WITHOUT_ID =
@@ -276,9 +284,27 @@ public class KickEventsWebhookTest {
     assertNotEquals(events.get(0).id(), events.get(1).id());
   }
 
+  @Test
+  public void differentRedemptionsProduceDifferentEventIds()
+    throws IOException {
+    accountsReturn(Optional.of(account));
+    givenReward();
+
+    webhook.webhook(REWARD_TYPE, "1", REWARD_BODY).join();
+    webhook
+      .webhook(REWARD_TYPE, "1", REWARD_BODY_OTHER_REDEMPTION)
+      .join();
+
+    var events = capturedRewardEvents(2);
+    assertNotEquals(events.get(0).id(), events.get(1).id());
+  }
+
   private void givenReward() {
     when(account.reward("reward-1")).thenReturn(Optional.of(reward));
     when(reward.recipientId()).thenReturn("rec");
+    when(reward.addMedia(any(), any(), any(), any())).thenReturn(
+      CompletableFuture.completedFuture(null)
+    );
   }
 
   private KickRewardEvent capturedRewardEvent() throws IOException {
@@ -299,16 +325,24 @@ public class KickEventsWebhookTest {
   }
 
   private static String rewardBody(String status, String input) {
+    return rewardBody(status, input, "redemption-1");
+  }
+
+  private static String rewardBody(
+    String status,
+    String input,
+    String redemptionId
+  ) {
     return """
     {
-      "id": "redemption-1",
+      "id": "%s",
       "user_input": "%s",
       "status": "%s",
       "reward": {"title": "Song", "id": "reward-1", "cost": 100},
       "redeemer": {"user_id": "redeemer-1", "username": "donor"},
       "broadcaster": {"user_id": "broadcaster-1", "username": "streamer"}
     }
-    """.formatted(input, status);
+    """.formatted(redemptionId, input, status);
   }
 
   private double count(String type, String outcome) {

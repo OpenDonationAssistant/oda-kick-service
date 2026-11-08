@@ -56,7 +56,9 @@ public class KickRewardTest {
   @Test
   public void usesTheRedemptionIdAsMediaId() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse("redemption-1", "added")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse("redemption-1", "added")
+      )
     );
 
     reward.addMedia("redemption-1", "water", "viewer", "Hydrate");
@@ -76,7 +78,9 @@ public class KickRewardTest {
   @Test
   public void usesTheSameMediaIdForRedeliveredRedemption() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse("redemption-1", "added")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse("redemption-1", "added")
+      )
     );
 
     reward.addMedia("redemption-1", "water", "viewer", "Hydrate");
@@ -93,7 +97,9 @@ public class KickRewardTest {
   @Test
   public void usesDifferentMediaIdsForDifferentRedemptions() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse("redemption-1", "added")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse("redemption-1", "added")
+      )
     );
 
     reward.addMedia("redemption-1", "water", "viewer", "Hydrate");
@@ -110,7 +116,9 @@ public class KickRewardTest {
   @Test
   public void refundsAndNotifiesChatWhenMediaWasRejected() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     givenRefundSucceeds();
@@ -128,7 +136,9 @@ public class KickRewardTest {
   @Test
   public void sendsTheFailureMessageToTheAccountsChannel() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     givenRefundSucceeds();
@@ -159,7 +169,9 @@ public class KickRewardTest {
   @Test
   public void tellsTheViewerWhenTheRedemptionWasAlreadyResolved() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     givenRefund(
@@ -178,7 +190,9 @@ public class KickRewardTest {
   @Test
   public void reportsWhenThePointsCouldNotBeReturned() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     givenRefund(
@@ -198,7 +212,9 @@ public class KickRewardTest {
   @Test
   public void treatsARejectResponseWithoutDataAsFailure() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     givenRefund(new DataWrapper<>(null));
@@ -214,7 +230,9 @@ public class KickRewardTest {
   @Test
   public void doesNotFailWhenTheRefundFutureFails() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     when(kick.rejectRedemption(any())).thenReturn(
@@ -234,7 +252,9 @@ public class KickRewardTest {
   @Test
   public void doesNotFailWhenTheRefundThrows() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenChatMessageSent();
     when(kick.rejectRedemption(any())).thenThrow(
@@ -254,7 +274,9 @@ public class KickRewardTest {
   @Test
   public void doesNotFailWhenTheChatMessageFails() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "unsupported url")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
     );
     givenRefundSucceeds();
     when(kick.sendChatMessage(any())).thenReturn(
@@ -295,7 +317,7 @@ public class KickRewardTest {
 
   @Test
   public void treatsANullResponseAsARejectedMedia() {
-    when(media.add(any())).thenReturn(null);
+    when(media.add(any())).thenReturn(CompletableFuture.completedFuture(null));
     givenChatMessageSent();
     givenRefundSucceeds();
 
@@ -310,7 +332,9 @@ public class KickRewardTest {
   @Test
   public void omitsABlankFailureReason() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "  ")
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "  ")
+      )
     );
     givenChatMessageSent();
     givenRefundSucceeds();
@@ -325,7 +349,9 @@ public class KickRewardTest {
   @Test
   public void truncatesALongFailureReason() {
     when(media.add(any())).thenReturn(
-      new MediaRPC.AddMediaResponse(null, "ошибка ".repeat(100))
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "ошибка ".repeat(100))
+      )
     );
     givenChatMessageSent();
     givenRefundSucceeds();
@@ -336,6 +362,40 @@ public class KickRewardTest {
     assertTrue(
       message.contains("ошибка ".repeat(100).substring(0, 150) + "…")
     );
+  }
+
+  @Test
+  public void completesOnlyWhenTheMediaReplyArrives() {
+    var reply = new CompletableFuture<MediaRPC.AddMediaResponse>();
+    when(media.add(any())).thenReturn(reply);
+
+    var result = reward.addMedia(
+      "redemption-1",
+      "water",
+      "viewer",
+      "Hydrate"
+    );
+
+    assertFalse(result.isDone());
+    reply.complete(new MediaRPC.AddMediaResponse("redemption-1", "added"));
+    assertTrue(result.isDone());
+    verifyNoInteractions(kick);
+  }
+
+  @Test
+  public void refundsWhenTheMediaFutureFails() {
+    when(media.add(any())).thenReturn(
+      CompletableFuture.failedFuture(new RuntimeException("rpc timeout"))
+    );
+    givenChatMessageSent();
+    givenRefundSucceeds();
+
+    reward.addMedia("redemption-1", "water", "viewer", "Hydrate");
+
+    var message = capturedChatMessage();
+    assertFalse(message.contains("rpc timeout"));
+    assertTrue(message.contains("Баллы за награду возвращены"));
+    verify(kick).rejectRedemption("redemption-1");
   }
 
   private void givenChatMessageSent() {

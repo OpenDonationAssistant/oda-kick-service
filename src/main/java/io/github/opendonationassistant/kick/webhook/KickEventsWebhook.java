@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -103,7 +103,7 @@ public class KickEventsWebhook {
     String body,
     Class<P> payloadType,
     Function<P, String> kickId,
-    BiConsumer<KickAccount, P> action
+    BiFunction<KickAccount, P, CompletableFuture<Void>> action
   ) {
     try {
       var payload = mapper.readValue(body, payloadType);
@@ -121,17 +121,14 @@ public class KickEventsWebhook {
         metrics.eventInvalid(type);
         return CompletableFuture.completedFuture(null);
       }
-      return accountRepository
-        .findByKickId(id)
-        .thenAccept(it ->
-          it.ifPresentOrElse(
-            account -> action.accept(account, payload),
-            () -> {
-              log.info("Account not found", Map.of("kickId", id));
-              metrics.eventNoAccount(type);
-            }
-          )
-        );
+      return accountRepository.findByKickId(id).thenCompose(it -> {
+        if (it.isEmpty()) {
+          log.info("Account not found", Map.of("kickId", id));
+          metrics.eventNoAccount(type);
+          return CompletableFuture.completedFuture(null);
+        }
+        return action.apply(it.get(), payload);
+      });
     } catch (Exception e) {
       // SerdeException/JsonSyntaxException extend IOException, while missing
       // record components and other incomplete payloads surface as
@@ -154,7 +151,10 @@ public class KickEventsWebhook {
       body,
       KickChannelFollowedPayload.class,
       payload -> payload.broadcaster().id(),
-      (account, payload) -> account.handleFollow(payload.follower().username())
+      (account, payload) -> {
+        account.handleFollow(payload.follower().username());
+        return completed();
+      }
     );
   }
 
@@ -170,13 +170,14 @@ public class KickEventsWebhook {
       (account, payload) -> {
         if (!payload.isLive()) {
           log.info("Stream ended, ignoring", Map.of());
-          return;
+          return completed();
         }
         account.handleStreamChange(
           payload.title(),
           payload.broadcaster().profilePicture(),
           payload.startedAt()
         );
+        return completed();
       }
     );
   }
@@ -190,12 +191,14 @@ public class KickEventsWebhook {
       body,
       KickChannelSubscribePayload.class,
       payload -> payload.broadcaster().id(),
-      (account, payload) ->
+      (account, payload) -> {
         account.handleSubscription(
           payload.subscriber().username(),
           payload.duration(),
           payload.createdAt()
-        )
+        );
+        return completed();
+      }
     );
   }
 
@@ -208,12 +211,14 @@ public class KickEventsWebhook {
       body,
       KickChannelSubscriptionGiftPayload.class,
       payload -> payload.broadcaster().id(),
-      (account, payload) ->
+      (account, payload) -> {
         account.handleSubscriptionGift(
           payload.gifter().username(),
           payload.giftees().size(),
           payload.createdAt()
-        )
+        );
+        return completed();
+      }
     );
   }
 
@@ -227,25 +232,32 @@ public class KickEventsWebhook {
     );
   }
 
-  private void handleReward(KickAccount account, KickRewardPayload event) {
-    account
+  private CompletableFuture<Void> handleReward(
+    KickAccount account,
+    KickRewardPayload event
+  ) {
+    return account
       .reward(event.reward().id())
-      .ifPresentOrElse(
-        reward -> {
-          if (isPending(event)) {
-            reward.addMedia(
+      .map(reward -> {
+        var media = isPending(event)
+          ? reward.addMedia(
               event.redemptionId(),
               event.input(),
               event.redeemer().username(),
               event.reward().title()
-            );
-          }
-          // TODO send reward event anyway even if account not found
-          sendEvent(rewardEvent(reward, event));
-        },
-        () ->
-          log.info("reward not found", Map.of("rewardId", event.reward().id()))
-      );
+            )
+          : completed();
+        return media.thenRun(() -> sendEvent(rewardEvent(reward, event)));
+      })
+      .orElseGet(() -> {
+        // TODO send reward event anyway even if account not found
+        log.info("reward not found", Map.of("rewardId", event.reward().id()));
+        return completed();
+      });
+  }
+
+  private static CompletableFuture<Void> completed() {
+    return CompletableFuture.completedFuture(null);
   }
 
   private KickRewardEvent rewardEvent(
@@ -270,18 +282,24 @@ public class KickEventsWebhook {
     String recipientId,
     KickRewardPayload event
   ) {
-    var identity =
-      recipientId +
-      ":" +
-      event.reward().id() +
-      ":" +
-      event.redeemer().id() +
-      ":" +
-      event.input() +
-      ":" +
-      event.status();
+    var identity = new StringBuilder()
+      .append(recipientId)
+      .append(':')
+      .append(event.reward().id())
+      .append(':')
+      .append(event.redeemer().id())
+      .append(':')
+      .append(event.input())
+      .append(':')
+      .append(event.status());
+    var redemptionId = event.redemptionId();
+    if (redemptionId != null && !redemptionId.isBlank()) {
+      // The redemption id separates two redemptions that look identical in
+      // every other component (same viewer, reward, input and status).
+      identity.append(':').append(redemptionId);
+    }
     return UUID.nameUUIDFromBytes(
-      identity.getBytes(StandardCharsets.UTF_8)
+      identity.toString().getBytes(StandardCharsets.UTF_8)
     ).toString();
   }
 
@@ -314,12 +332,14 @@ public class KickEventsWebhook {
       body,
       KickLivestreamMetadataUpdatedPayload.class,
       payload -> payload.broadcaster().userId(),
-      (account, payload) ->
+      (account, payload) -> {
         account.handleMetadataUpdate(
           payload.metadata().title(),
           payload.metadata().category().name(),
           payload.metadata().language()
-        )
+        );
+        return completed();
+      }
     );
   }
 
@@ -329,7 +349,7 @@ public class KickEventsWebhook {
       body,
       KickKicksGiftedPayload.class,
       payload -> payload.broadcaster().userId(),
-      (account, payload) ->
+      (account, payload) -> {
         account.handleKicksGifted(
           payload.sender().username(),
           payload.gift().name(),
@@ -337,7 +357,9 @@ public class KickEventsWebhook {
           payload.gift().tier(),
           payload.gift().amount(),
           payload.createdAt()
-        )
+        );
+        return completed();
+      }
     );
   }
 

@@ -55,7 +55,7 @@ public class KickReward {
     return recipientId;
   }
 
-  public void addMedia(
+  public CompletableFuture<Void> addMedia(
     @Nullable String redemptionId,
     String input,
     String requester,
@@ -79,10 +79,11 @@ public class KickReward {
         null,
         RefundResult.FAILED
       );
-      return;
+      return CompletableFuture.completedFuture(null);
     }
+    final CompletableFuture<MediaRPC.@Nullable AddMediaResponse> pending;
     try {
-      var response = media.add(
+      pending = media.add(
         new MediaRPC.AddMediaRequest(
           redemptionId,
           input,
@@ -91,14 +92,26 @@ public class KickReward {
           SYSTEM
         )
       );
-      // TODO refactor it
+    } catch (RuntimeException e) {
+      logMediaFailure(redemptionId, e);
+      // Internal failure details are not exposed to the viewer.
+      decline(redemptionId, rewardTitle, requester, null);
+      return CompletableFuture.completedFuture(null);
+    }
+    return pending.handle((response, error) -> {
+      if (error != null) {
+        logMediaFailure(redemptionId, error);
+        // Internal failure details are not exposed to the viewer.
+        decline(redemptionId, rewardTitle, requester, null);
+        return null;
+      }
       var mediaId = response == null ? null : response.id();
       if (mediaId == null || mediaId.isBlank()) {
         var reason = Optional.ofNullable(response)
           .map(MediaRPC.AddMediaResponse::message)
           .filter(message -> !message.isBlank())
           .orElse(null);
-        log.error(
+        log.warn(
           "Media was not added from reward",
           Map.of(
             "redemptionId",
@@ -112,7 +125,7 @@ public class KickReward {
           )
         );
         decline(redemptionId, rewardTitle, requester, reason);
-        return;
+        return null;
       }
       log.info(
         "Added media from reward",
@@ -127,23 +140,24 @@ public class KickReward {
           data.id()
         )
       );
-    } catch (RuntimeException e) {
-      log.error(
-        "Failed to add media from reward",
-        Map.of(
-          "redemptionId",
-          redemptionId,
-          "recipientId",
-          recipientId,
-          "rewardId",
-          data.id(),
-          "error",
-          Objects.toString(e.getMessage(), "unknown error")
-        )
-      );
-      // Internal failure details are not exposed to the viewer.
-      decline(redemptionId, rewardTitle, requester, null);
-    }
+      return null;
+    });
+  }
+
+  private void logMediaFailure(String redemptionId, Throwable error) {
+    log.error(
+      "Failed to add media from reward",
+      Map.of(
+        "redemptionId",
+        redemptionId,
+        "recipientId",
+        recipientId,
+        "rewardId",
+        data.id(),
+        "error",
+        Objects.toString(error.getMessage(), "unknown error")
+      )
+    );
   }
 
   private void decline(
