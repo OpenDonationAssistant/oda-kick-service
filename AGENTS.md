@@ -21,7 +21,7 @@ oda-kick-service/
 │   ├── integration/
 │   │   ├── KickDataClient.java     # @Client("kick-data") Kick public API
 │   │   ├── KickClient.java         # facade over KickDataClient, token bound at construction
-│   │   ├── KickClientFactory.java  # TokenRPC lookup -> token-bound KickClient per account
+│   │   ├── KickClientFactory.java  # async TokenRPC lookup -> token-bound KickClient per account
 │   │   ├── KickWebClient.java      # @Client("kick-web") channel info (https://kick.com)
 │   │   └── media/MediaRPC.java     # RabbitMQ RPC: rpc exchange, media.add binding
 │   ├── kick/
@@ -51,7 +51,7 @@ oda-kick-service/
 |------|----------|-------|
 | Add/change a Kick event | `kick/webhook/KickEventsWebhook.java` | Controller + nested `@Serdeable` payload records |
 | Change reward/media behaviour | `kick/webhook/KickEventsWebhook.java`, `kick/reward/repository/KickReward.java` | `KickAccount.reward(id)` returns the linked reward |
-| Call the Kick API | `integration/KickClientFactory.java` | Creates a token-bound `KickClient`; raw HTTP in `KickDataClient` |
+| Call the Kick API | `integration/KickClientFactory.java` | Async token-bound `KickClient`; the blocking `TokenRPC` runs on the `blocking` executor, raw HTTP in `KickDataClient` |
 | Change the media request | `integration/media/MediaRPC.java` | `rpc` exchange, `media.add` binding |
 | Persist accounts/rewards | `kick/account/`, `kick/reward/repository/` | Data records + Micronaut Data repositories |
 | Add a DB migration | `src/main/resources/db/migration/` | `V{n}__description.sql` |
@@ -67,7 +67,8 @@ oda-kick-service/
   `user_input`, `status`, `reward`, `redeemer`, `broadcaster`.
 - The account is resolved by broadcaster Kick id. `KickAccount.reward(rewardId)` looks up
   the `RewardData` row and returns a linked `KickReward` carrying the account's
-  recipient id, Kick channel id, `MediaRPC` and token-bound `KickClient`.
+  recipient id, refresh token id, Kick channel id, `MediaRPC` and `KickClientFactory`
+  (no token RPC — the client is resolved lazily inside the refund/chat path).
 - Only redemptions with `status == "pending"` request media. Every status of a known
   reward still publishes a `KickRewardEvent`; an unknown reward id is only logged.
 - `KickReward.addMedia(redemptionId, input, requester, title)` sends the media-add RPC
@@ -117,8 +118,13 @@ oda-kick-service/
 - **The webhook is `@Secured(IS_ANONYMOUS)` and does not verify `Kick-Event-Signature`.**
   It now triggers privileged side effects (media creation, redemption refund, chat), so
   treat forged deliveries as a real risk when adding handlers.
-- **The media and token RPCs are synchronous**, and reward handling runs inline on the
-  webhook thread; avoid adding more blocking calls to that path.
+- **Reward handling runs inline on the webhook (Netty event loop) thread** and
+  `TokenRPC.token` is a *blocking* RabbitMQ client: `KickClientFactory.create` dispatches
+  it to the `@Named(TaskExecutors.BLOCKING)` executor and returns a `CompletableFuture`,
+  so never call `tokenRPC.token` from a controller/event-loop thread (Reactor fails with
+  "block()/blockFirst()/blockLast() are blocking"). `MediaRPC.add` is already
+  non-blocking, and reward linking does not resolve a token at all — `KickReward` only
+  creates the client on the refund/chat path.
 - **Unknown reward ids must not create side effects** — no media request and no event.
 - **No Maven wrapper** — use the installed `mvn`. `target/`, `.tmp/`, `.micronaut/` and
   IDE files are gitignored; don't commit them.

@@ -68,7 +68,9 @@ public class SendKickMessageHandlerTest {
 
   @BeforeEach
   public void stubKickClient() {
-    when(kickFactory.create(RECIPIENT_ID, REFRESH_TOKEN_ID)).thenReturn(kick);
+    when(kickFactory.create(RECIPIENT_ID, REFRESH_TOKEN_ID)).thenReturn(
+      CompletableFuture.completedFuture(kick)
+    );
   }
 
   private static SendKickMessageCommand command() {

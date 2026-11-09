@@ -69,9 +69,10 @@ public class KickAccount {
     return new KickReward(
       reward,
       data.recipientId(),
+      data.refreshTokenId(),
       data.kickId(),
       media,
-      kickFactory.create(data.recipientId(), data.refreshTokenId())
+      kickFactory
     );
   }
 
@@ -190,8 +191,10 @@ public class KickAccount {
   ) {
     return kickFactory
       .create(data.recipientId(), data.refreshTokenId())
-      .createReward(
-        new KickDataClient.RewardRequest(title, "", cost, true, null)
+      .thenCompose(kick ->
+        kick.createReward(
+          new KickDataClient.RewardRequest(title, "", cost, true, null)
+        )
       )
       .thenAccept(it -> {
         var created = it.data();
@@ -213,8 +216,10 @@ public class KickAccount {
   ) {
     return kickFactory
       .create(data.recipientId(), data.refreshTokenId())
-      .sendChatMessage(
-        new SendChatMessageRequest(content, CHAT_MESSAGE_TYPE, data.kickId())
+      .thenCompose(kick ->
+        kick.sendChatMessage(
+          new SendChatMessageRequest(content, CHAT_MESSAGE_TYPE, data.kickId())
+        )
       );
   }
 }

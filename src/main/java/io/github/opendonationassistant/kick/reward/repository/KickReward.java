@@ -2,6 +2,7 @@ package io.github.opendonationassistant.kick.reward.repository;
 
 import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.FailedRedemption;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
@@ -29,22 +30,25 @@ public class KickReward {
   private final ODALogger log = new ODALogger(this);
   private final RewardData data;
   private final String recipientId;
+  private final String refreshTokenId;
   private final String kickId;
   private final MediaRPC media;
-  private final KickClient kick;
+  private final KickClientFactory kickFactory;
 
   public KickReward(
     RewardData data,
     String recipientId,
+    String refreshTokenId,
     String kickId,
     MediaRPC media,
-    KickClient kick
+    KickClientFactory kickFactory
   ) {
     this.data = data;
     this.recipientId = recipientId;
+    this.refreshTokenId = refreshTokenId;
     this.kickId = kickId;
     this.media = media;
-    this.kick = kick;
+    this.kickFactory = kickFactory;
   }
 
   public RewardData data() {
@@ -166,52 +170,57 @@ public class KickReward {
     String requester,
     @Nullable String reason
   ) {
-    CompletableFuture<RefundResult> refunded;
-    try {
-      refunded = kick
-        .rejectRedemption(redemptionId)
-        .thenApply(response -> refundResult(redemptionId, response));
-    } catch (RuntimeException e) {
-      log.error(
-        "Failed to return reward points",
-        Map.of(
-          "recipientId",
-          recipientId,
-          "redemptionId",
-          redemptionId,
-          "error",
-          Objects.toString(e.getMessage(), "unknown error")
+    // The token is resolved lazily and off the caller thread: a failed media
+    // request must never turn the webhook thread into a token RPC caller. The
+    // same client is reused for the refund and for the chat notification.
+    kick()
+      .thenCompose(kick ->
+        refund(kick, redemptionId).thenCompose(result ->
+          sendFailureMessage(kick, rewardTitle, requester, reason, result)
         )
-      );
-      sendFailureMessage(
-        rewardTitle,
-        requester,
-        reason,
-        RefundResult.FAILED
-      );
-      return;
+      )
+      .exceptionally(error -> {
+        logRefundFailure(redemptionId, error);
+        return null;
+      });
+  }
+
+  private CompletableFuture<KickClient> kick() {
+    return kickFactory.create(recipientId, refreshTokenId);
+  }
+
+  private CompletableFuture<RefundResult> refund(
+    KickClient kick,
+    String redemptionId
+  ) {
+    try {
+      return kick
+        .rejectRedemption(redemptionId)
+        .handle((response, error) -> {
+          if (error != null) {
+            logRefundFailure(redemptionId, error);
+            return RefundResult.FAILED;
+          }
+          return refundResult(redemptionId, response);
+        });
+    } catch (RuntimeException e) {
+      logRefundFailure(redemptionId, e);
+      return CompletableFuture.completedFuture(RefundResult.FAILED);
     }
-    refunded
-      .handle((result, error) -> {
-        if (error != null) {
-          log.error(
-            "Failed to return reward points",
-            Map.of(
-              "recipientId",
-              recipientId,
-              "redemptionId",
-              redemptionId,
-              "error",
-              Objects.toString(error.getMessage(), "unknown error")
-            )
-          );
-          return RefundResult.FAILED;
-        }
-        return result == null ? RefundResult.FAILED : result;
-      })
-      .thenAccept(result ->
-        sendFailureMessage(rewardTitle, requester, reason, result)
-      );
+  }
+
+  private void logRefundFailure(String redemptionId, Throwable error) {
+    log.error(
+      "Failed to return reward points",
+      Map.of(
+        "recipientId",
+        recipientId,
+        "redemptionId",
+        redemptionId,
+        "error",
+        Objects.toString(error.getMessage(), "unknown error")
+      )
+    );
   }
 
   private RefundResult refundResult(
@@ -269,25 +278,32 @@ public class KickReward {
     @Nullable String reason,
     RefundResult result
   ) {
+    kick()
+      .thenCompose(kick ->
+        sendFailureMessage(kick, rewardTitle, requester, reason, result)
+      )
+      .exceptionally(error -> {
+        logChatFailure(error);
+        return null;
+      });
+  }
+
+  private CompletableFuture<Void> sendFailureMessage(
+    KickClient kick,
+    String rewardTitle,
+    String requester,
+    @Nullable String reason,
+    RefundResult result
+  ) {
     var content = failureMessage(rewardTitle, requester, reason, result);
     try {
-      kick
+      return kick
         .sendChatMessage(
           new SendChatMessageRequest(content, CHAT_MESSAGE_TYPE, kickId)
         )
         .handle((response, error) -> {
           if (error != null) {
-            log.error(
-              "Failed to report reward failure in chat",
-              Map.of(
-                "recipientId",
-                recipientId,
-                "rewardId",
-                data.id(),
-                "error",
-                Objects.toString(error.getMessage(), "unknown error")
-              )
-            );
+            logChatFailure(error);
             return null;
           }
           var sent = Optional.ofNullable(response)
@@ -303,18 +319,23 @@ public class KickReward {
           return null;
         });
     } catch (RuntimeException e) {
-      log.error(
-        "Failed to report reward failure in chat",
-        Map.of(
-          "recipientId",
-          recipientId,
-          "rewardId",
-          data.id(),
-          "error",
-          Objects.toString(e.getMessage(), "unknown error")
-        )
-      );
+      logChatFailure(e);
+      return CompletableFuture.completedFuture(null);
     }
+  }
+
+  private void logChatFailure(Throwable error) {
+    log.error(
+      "Failed to report reward failure in chat",
+      Map.of(
+        "recipientId",
+        recipientId,
+        "rewardId",
+        data.id(),
+        "error",
+        Objects.toString(error.getMessage(), "unknown error")
+      )
+    );
   }
 
   private static String failureMessage(

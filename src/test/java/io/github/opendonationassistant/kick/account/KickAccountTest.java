@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,7 +38,9 @@ public class KickAccountTest {
 
   @BeforeEach
   public void stubKickApi() {
-    when(kickFactory.create(anyString(), anyString())).thenReturn(kick);
+    when(kickFactory.create(anyString(), anyString())).thenReturn(
+      CompletableFuture.completedFuture(kick)
+    );
     when(kick.sendChatMessage(any())).thenReturn(
       CompletableFuture.completedFuture(
         new DataWrapper<>(new SendChatMessageResponse(true, "msg-1"))

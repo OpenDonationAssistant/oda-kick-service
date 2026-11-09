@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.opendonationassistant.integration.KickClient;
+import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.integration.KickDataClient.DataWrapper;
 import io.github.opendonationassistant.integration.KickDataClient.FailedRedemption;
 import io.github.opendonationassistant.integration.KickDataClient.SendChatMessageRequest;
@@ -24,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.zalando.problem.Problem;
 
 public class KickRewardTest {
 
@@ -34,17 +37,30 @@ public class KickRewardTest {
     "media"
   );
   private static final String RECIPIENT_ID = "rec";
+  private static final String REFRESH_TOKEN_ID = "rt-1";
   private static final String KICK_ID = "123";
 
   private MediaRPC media;
   private KickClient kick;
+  private KickClientFactory kickFactory;
   private KickReward reward;
 
   @BeforeEach
   public void setUp() {
     media = mock(MediaRPC.class);
     kick = mock(KickClient.class);
-    reward = new KickReward(DATA, RECIPIENT_ID, KICK_ID, media, kick);
+    kickFactory = mock(KickClientFactory.class);
+    when(kickFactory.create(RECIPIENT_ID, REFRESH_TOKEN_ID)).thenReturn(
+      CompletableFuture.completedFuture(kick)
+    );
+    reward = new KickReward(
+      DATA,
+      RECIPIENT_ID,
+      REFRESH_TOKEN_ID,
+      KICK_ID,
+      media,
+      kickFactory
+    );
   }
 
   @Test
@@ -73,6 +89,47 @@ public class KickRewardTest {
       )
     );
     verifyNoInteractions(kick);
+  }
+
+  @Test
+  public void resolvesTheAccountTokenOnlyWhenAKickCallIsNeeded() {
+    when(media.add(any())).thenReturn(
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
+    );
+    givenChatMessageSent();
+    givenRefundSucceeds();
+
+    reward.addMedia("redemption-1", "water", "viewer", "Hydrate").join();
+
+    verify(kickFactory).create(RECIPIENT_ID, REFRESH_TOKEN_ID);
+    verify(kick).rejectRedemption("redemption-1");
+  }
+
+  @Test
+  public void doesNotFailWhenTheTokenCannotBeResolved() {
+    when(media.add(any())).thenReturn(
+      CompletableFuture.completedFuture(
+        new MediaRPC.AddMediaResponse(null, "unsupported url")
+      )
+    );
+    when(kickFactory.create(anyString(), anyString())).thenReturn(
+      CompletableFuture.failedFuture(
+        Problem.builder().withTitle("Can't obtain access token").build()
+      )
+    );
+
+    var result = reward.addMedia(
+      "redemption-1",
+      "water",
+      "viewer",
+      "Hydrate"
+    );
+
+    assertDoesNotThrow(() -> result.join());
+    verify(kick, never()).rejectRedemption(any());
+    verify(kick, never()).sendChatMessage(any());
   }
 
   @Test

@@ -44,14 +44,16 @@ public class SubscribeEventsHandler
   public void handle(SubscribeKickEventsCommand message) throws IOException {
     kickFactory
       .create(message.recipientId(), message.refreshTokenId())
-      .subscribe(
-        new SubscriptionRequest(
-          message
-            .events()
-            .stream()
-            .map(name -> new EventSubscription(name, 1))
-            .toList(),
-          "webhook"
+      .thenCompose(kick ->
+        kick.subscribe(
+          new SubscriptionRequest(
+            message
+              .events()
+              .stream()
+              .map(name -> new EventSubscription(name, 1))
+              .toList(),
+            "webhook"
+          )
         )
       )
       .thenAccept(response -> handleResponse(message, response))

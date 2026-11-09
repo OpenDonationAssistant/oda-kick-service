@@ -34,7 +34,9 @@ public class UnsubscribeEventsHandlerTest {
 
   @BeforeEach
   public void stubKickClient() {
-    when(kickFactory.create("testuser", "tokenId")).thenReturn(kick);
+    when(kickFactory.create("testuser", "tokenId")).thenReturn(
+      CompletableFuture.completedFuture(kick)
+    );
   }
 
   @Test

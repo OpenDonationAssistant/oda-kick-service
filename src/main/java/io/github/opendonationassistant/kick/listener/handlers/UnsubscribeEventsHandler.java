@@ -1,5 +1,6 @@
 package io.github.opendonationassistant.kick.listener.handlers;
 
+import io.github.opendonationassistant.commons.logging.ODALogger;
 import io.github.opendonationassistant.events.AbstractMessageHandler;
 import io.github.opendonationassistant.integration.KickClientFactory;
 import io.github.opendonationassistant.kick.subscription.SubscriptionsData;
@@ -13,6 +14,8 @@ import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 @Singleton
@@ -21,6 +24,7 @@ public class UnsubscribeEventsHandler
     UnsubscribeEventsHandler.UnsubscribeKickEventsCommand
   > {
 
+  private final ODALogger log = new ODALogger(this);
   private final KickClientFactory kickFactory;
   private final SubscriptionsDataRepository dataRepository;
 
@@ -74,8 +78,10 @@ public class UnsubscribeEventsHandler
       .ifPresent(leftAndDeleted -> {
         kickFactory
           .create(message.recipientId(), message.refreshTokenId())
-          .unsubscribe(
-            leftAndDeleted.deleted().stream().map(Subscription::id).toList()
+          .thenCompose(kick ->
+            kick.unsubscribe(
+              leftAndDeleted.deleted().stream().map(Subscription::id).toList()
+            )
           )
           .thenAccept(response -> {
             if (leftAndDeleted.left().isEmpty()) {
@@ -90,6 +96,22 @@ public class UnsubscribeEventsHandler
                 )
               );
             }
+          })
+          .exceptionally(error -> {
+            // The unsubscribe future is not joined, so log it instead of losing
+            // it: a failed token lookup or Kick call must not be silent.
+            log.error(
+              "Failed to unsubscribe kick events",
+              Map.of(
+                "recipientId",
+                message.recipientId(),
+                "subscriptionId",
+                leftAndDeleted.subscriptionId(),
+                "error",
+                Objects.toString(error.getMessage(), "unknown error")
+              )
+            );
+            return null;
           });
       });
   }
