@@ -1,7 +1,10 @@
 package io.github.opendonationassistant;
 
+import io.github.opendonationassistant.commons.BlockingExecutor;
 import io.github.opendonationassistant.rabbit.AMQPConfiguration;
+import io.github.opendonationassistant.rabbit.AsyncTokenRPC;
 import io.github.opendonationassistant.rabbit.RabbitClient;
+import io.github.opendonationassistant.rabbit.TokenRPC;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.rabbitmq.connect.ChannelInitializer;
 import io.micronaut.rabbitmq.connect.ChannelPool;
@@ -38,5 +41,13 @@ public class Application {
   @Named("events")
   public RabbitClient kickFacade(ChannelPool pool, ObjectMapper mapper) {
     return new RabbitClient(pool, mapper, "kick");
+  }
+
+  @Singleton
+  public AsyncTokenRPC asyncTokenRpc(
+    TokenRPC tokenRPC,
+    BlockingExecutor blockingExecutor
+  ) {
+    return new AsyncTokenRPC(tokenRPC, blockingExecutor);
   }
 }

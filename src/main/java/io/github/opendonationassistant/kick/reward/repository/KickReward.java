@@ -170,9 +170,6 @@ public class KickReward {
     String requester,
     @Nullable String reason
   ) {
-    // The token is resolved lazily and off the caller thread: a failed media
-    // request must never turn the webhook thread into a token RPC caller. The
-    // same client is reused for the refund and for the chat notification.
     kick()
       .thenCompose(kick ->
         refund(kick, redemptionId).thenCompose(result ->

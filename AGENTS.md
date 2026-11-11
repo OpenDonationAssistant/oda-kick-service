@@ -5,7 +5,7 @@
 
 ## OVERVIEW
 
-Micronaut 5.0.2 / Java 25 bridge between Kick and the ODA platform. It receives
+Micronaut 5.2.5 / Java 25 bridge between Kick and the ODA platform. It receives
 `POST /kick/events` webhooks, publishes ODA events on the `kick` exchange, consumes Kick
 commands from the `commands` exchange, and persists accounts, rewards and subscriptions in
 PostgreSQL schema `kick` (Flyway). Packaged as a GraalVM native image.
@@ -40,7 +40,7 @@ oda-kick-service/
 │   ├── logback.xml
 │   └── db/migration/               # Flyway V1..V3
 ├── src/test/java/                  # JUnit 5 + Mockito; MockServer wire test; one DB test
-├── pom.xml                         # Micronaut parent 5.0.2, Java 25, ErrorProne + NullAway
+├── pom.xml                         # Micronaut parent 5.2.5, Java 25, ErrorProne + NullAway
 ├── Dockerfile                      # fedora:44, copies the pre-built native binary
 └── .github/workflows/              # delegates to the oda-libraries release workflow
 ```
@@ -51,7 +51,7 @@ oda-kick-service/
 |------|----------|-------|
 | Add/change a Kick event | `kick/webhook/KickEventsWebhook.java` | Controller + nested `@Serdeable` payload records |
 | Change reward/media behaviour | `kick/webhook/KickEventsWebhook.java`, `kick/reward/repository/KickReward.java` | `KickAccount.reward(id)` returns the linked reward |
-| Call the Kick API | `integration/KickClientFactory.java` | Async token-bound `KickClient`; the blocking `TokenRPC` runs on the `blocking` executor, raw HTTP in `KickDataClient` |
+| Call the Kick API | `integration/KickClientFactory.java` | Async token-bound `KickClient`; the token is resolved through `AsyncTokenRPC`, the `CompletableFuture` wrapper over the blocking `TokenRPC`; raw HTTP in `KickDataClient` |
 | Change the media request | `integration/media/MediaRPC.java` | `rpc` exchange, `media.add` binding |
 | Persist accounts/rewards | `kick/account/`, `kick/reward/repository/` | Data records + Micronaut Data repositories |
 | Add a DB migration | `src/main/resources/db/migration/` | `V{n}__description.sql` |
@@ -119,12 +119,12 @@ oda-kick-service/
   It now triggers privileged side effects (media creation, redemption refund, chat), so
   treat forged deliveries as a real risk when adding handlers.
 - **Reward handling runs inline on the webhook (Netty event loop) thread** and
-  `TokenRPC.token` is a *blocking* RabbitMQ client: `KickClientFactory.create` dispatches
-  it to the `@Named(TaskExecutors.BLOCKING)` executor and returns a `CompletableFuture`,
-  so never call `tokenRPC.token` from a controller/event-loop thread (Reactor fails with
-  "block()/blockFirst()/blockLast() are blocking"). `MediaRPC.add` is already
-  non-blocking, and reward linking does not resolve a token at all — `KickReward` only
-  creates the client on the refund/chat path.
+  `TokenRPC.token` is a *blocking* RabbitMQ client: `KickClientFactory.create` resolves
+  the token through `AsyncTokenRPC`, the `CompletableFuture` wrapper that runs the
+  blocking client on the `blocking` executor, so never call `tokenRPC.token` from a
+  controller/event-loop thread (Reactor fails with "block()/blockFirst()/blockLast() are
+  blocking"). `MediaRPC.add` is already non-blocking, and reward linking does not resolve
+  a token at all — `KickReward` only creates the client on the refund/chat path.
 - **Unknown reward ids must not create side effects** — no media request and no event.
 - **No Maven wrapper** — use the installed `mvn`. `target/`, `.tmp/`, `.micronaut/` and
   IDE files are gitignored; don't commit them.
@@ -169,7 +169,7 @@ mvn clean package -Dpackaging=native-image -DskipTests     # native binary targe
   config; it must be supplied externally via
   `micronaut.http.services.kick-data.url` (tests override it with MockServer).
 - **Shared libs**: `oda-rabbit-conf` (`AMQPConfiguration`, `RabbitClient`, `TokenRPC`,
-  `MessageProcessor`, `AbstractMessageHandler`) at `oda.version` 0.11.228.
+  `MessageProcessor`, `AbstractMessageHandler`) at `oda.version` 0.12.250.
 - **CI/release**: `.github/workflows/` delegates to
   `OpenDonationAssistant/oda-libraries/.github/workflows/release_service.yml@master`;
   release version = GitHub run number; npm client generation is disabled.

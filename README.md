@@ -1,8 +1,8 @@
-## Micronaut 4.10.13 Documentation
+## Micronaut 5.2.5 Documentation
 
-- [User Guide](https://docs.micronaut.io/4.10.13/guide/index.html)
-- [API Reference](https://docs.micronaut.io/4.10.13/api/index.html)
-- [Configuration Reference](https://docs.micronaut.io/4.10.13/guide/configurationreference.html)
+- [User Guide](https://docs.micronaut.io/5.2.5/guide/index.html)
+- [API Reference](https://docs.micronaut.io/5.2.5/api/index.html)
+- [Configuration Reference](https://docs.micronaut.io/5.2.5/guide/configurationreference.html)
 - [Micronaut Guides](https://guides.micronaut.io/index.html)
 ---
 

@@ -1,49 +1,42 @@
 package io.github.opendonationassistant.integration;
 
+import io.github.opendonationassistant.rabbit.AsyncTokenRPC;
 import io.github.opendonationassistant.rabbit.TokenRPC;
-import io.micronaut.scheduling.TaskExecutors;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import org.jspecify.annotations.Nullable;
 import org.zalando.problem.Problem;
 
 @Singleton
 public class KickClientFactory {
 
   private final KickDataClient client;
-  private final TokenRPC tokenRPC;
-  private final Executor tokenExecutor;
+  private final AsyncTokenRPC asyncTokenRPC;
 
   @Inject
   public KickClientFactory(
     KickDataClient client,
-    TokenRPC tokenRPC,
-    @Named(TaskExecutors.BLOCKING) Executor tokenExecutor
+    AsyncTokenRPC asyncTokenRPC
   ) {
     this.client = client;
-    this.tokenRPC = tokenRPC;
-    this.tokenExecutor = tokenExecutor;
+    this.asyncTokenRPC = asyncTokenRPC;
   }
 
   public CompletableFuture<KickClient> create(
     String recipientId,
     String refreshTokenId
   ) {
-    return CompletableFuture.supplyAsync(
-      () -> token(recipientId, refreshTokenId),
-      tokenExecutor
-    ).thenApply(token -> new KickClient(client, token));
+    return asyncTokenRPC
+      .token(new TokenRPC.TokenRequest(recipientId, refreshTokenId))
+      .thenApply(response -> new KickClient(client, bearerToken(response)));
   }
 
-  private String token(String recipientId, String refreshTokenId) {
-    return Optional.ofNullable(
-      tokenRPC.token(new TokenRPC.TokenRequest(recipientId, refreshTokenId))
-    )
+  private String bearerToken(TokenRPC.@Nullable TokenResponse response) {
+    return Optional.ofNullable(response)
       .map(TokenRPC.TokenResponse::token)
-      .map(t -> "Bearer " + t)
+      .map(token -> "Bearer " + token)
       .orElseThrow(() ->
         Problem.builder().withTitle("Can't obtain access token").build()
       );

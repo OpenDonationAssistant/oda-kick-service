@@ -10,7 +10,7 @@
   <parent>
     <groupId>io.micronaut.platform</groupId>
     <artifactId>micronaut-parent</artifactId>
-    <version>5.0.2</version>
+    <version>5.2.5</version>
   </parent>
 
   <properties>
@@ -28,7 +28,7 @@
     <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
     <sonar.jacoco.reportPath>${project.basedir}/target/jacoco.exec</sonar.jacoco.reportPath>
     <sonar.language>java</sonar.language>
-    <oda.version>0.11.228</oda.version>
+    <oda.version>0.12.250</oda.version>
   </properties>
 
   <repositories>
